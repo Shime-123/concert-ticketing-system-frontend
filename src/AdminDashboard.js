@@ -25,7 +25,7 @@ function AdminDashboard() {
   });
 
   const [editingConcert, setEditingConcert] = useState(null);
-  const baseUrl = process.env.REACT_APP_API_URL || "http://localhost:5000";
+  const baseUrl = process.env.REACT_APP_API_URL || "https://concert-ticketing-system-backend.onrender.com";
 
   // --- 1. Fixed Fetch Logic with useCallback ---
   const fetchData = useCallback(async () => {
