@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Container, Row, Col, Card, Table, Badge, Button, Modal, Form, Spinner, InputGroup } from 'react-bootstrap';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Container, Row, Col, Card, Table, Badge, Button, Modal, Form, Spinner, InputGroup, Pagination } from 'react-bootstrap';
 
 function AdminDashboard() {
   // --- State Management ---
@@ -8,9 +8,12 @@ function AdminDashboard() {
   const [buyers, setBuyers] = useState([]);
   const [loading, setLoading] = useState(true);
   
-  // 🔍 Search States
+  // 🔍 Search & Pagination States
   const [concertSearch, setConcertSearch] = useState("");
   const [buyerSearch, setBuyerSearch] = useState("");
+  const [concertPage, setConcertPage] = useState(1);
+  const [buyerPage, setBuyerPage] = useState(1);
+  const rowsPerPage = 5;
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -24,8 +27,8 @@ function AdminDashboard() {
   const [editingConcert, setEditingConcert] = useState(null);
   const baseUrl = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
-  // --- Data Fetching ---
-  const fetchData = async () => {
+  // --- 1. Fixed Fetch Logic with useCallback ---
+  const fetchData = useCallback(async () => {
     try {
       const [statsRes, concertRes] = await Promise.all([
         fetch(`${baseUrl}/api/Admin/stats`),
@@ -45,41 +48,37 @@ function AdminDashboard() {
       console.error("Dashboard Fetch Error:", err);
       setLoading(false);
     }
-  };
+  }, [baseUrl]);
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { 
+    fetchData(); 
+  }, [fetchData]);
 
-  // --- 📥 Export Logic (Native CSV) ---
+  // --- 📥 Export Logic ---
   const exportToCSV = () => {
     if (buyers.length === 0) return alert("No data to export");
-
-    // Define CSV Headers
     const headers = ["Customer Email", "Concert Title", "Ticket Type", "Quantity", "Purchase Date"];
-    
-    // Convert data to CSV rows
     const csvContent = [
       headers.join(","),
       ...buyers.map(b => [
-        `"${b.userEmail}"`, 
-        `"${b.concertTitle}"`, 
-        `"${b.ticketType}"`, 
-        b.quantity, 
-        new Date(b.createdAt).toLocaleDateString()
+        `"${b.userEmail}"`, `"${b.concertTitle}"`, `"${b.ticketType}"`, b.quantity, new Date(b.createdAt).toLocaleDateString()
       ].join(","))
     ].join("\n");
 
-    // Create Download Link
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `EthioConcert_Sales_${new Date().toLocaleDateString()}.csv`);
-    document.body.appendChild(link);
+    link.href = url;
+    link.download = `EthioConcert_Sales_${new Date().toLocaleDateString()}.csv`;
     link.click();
-    document.body.removeChild(link);
   };
 
-  // --- Filtering Logic ---
+  // --- 🔢 Pagination Logic ---
+  const paginate = (items, page) => {
+    const startIndex = (page - 1) * rowsPerPage;
+    return items.slice(startIndex, startIndex + rowsPerPage);
+  };
+
   const filteredConcerts = concerts.filter(c => 
     c.concertTitle.toLowerCase().includes(concertSearch.toLowerCase()) ||
     c.venue.toLowerCase().includes(concertSearch.toLowerCase())
@@ -87,8 +86,11 @@ function AdminDashboard() {
 
   const filteredBuyers = buyers.filter(b => 
     b.userEmail.toLowerCase().includes(buyerSearch.toLowerCase()) ||
-    b.concertTitle?.toLowerCase().includes(buyerSearch.toLowerCase())
+    (b.concertTitle && b.concertTitle.toLowerCase().includes(buyerSearch.toLowerCase()))
   );
+
+  const currentConcerts = paginate(filteredConcerts, concertPage);
+  const currentBuyers = paginate(filteredBuyers, buyerPage);
 
   // --- Action Handlers ---
   const handleAddConcert = async (e) => {
@@ -133,7 +135,7 @@ function AdminDashboard() {
   };
 
   const handleDeleteConcert = async (id) => {
-    if (window.confirm("Delete this concert? Sales history will be kept in database but event will vanish.")) {
+    if (window.confirm("Delete this concert? Sales history remains in DB.")) {
       try {
         const res = await fetch(`${baseUrl}/api/Admin/delete-concert/${id}`, { method: 'DELETE' });
         if (res.ok) fetchData();
@@ -153,7 +155,7 @@ function AdminDashboard() {
         <div className="d-flex justify-content-between align-items-center mb-5">
           <div>
             <h1 className="fw-bold">Admin Panel</h1>
-            <p className="text-muted">Manage your Ethiopian concert catalog and sales</p>
+            <p className="text-muted">Manage your concert catalog and sales</p>
           </div>
           <div className="d-flex gap-2">
             <Button variant="outline-dark" className="fw-bold px-4 rounded-pill" onClick={exportToCSV}>
@@ -179,30 +181,24 @@ function AdminDashboard() {
 
         {/* Live Events Table */}
         <div className="d-flex justify-content-between align-items-center mb-3">
-          <h4 className="fw-bold mb-0">Live Events</h4>
+          <h4 className="fw-bold mb-0">Live Events ({filteredConcerts.length})</h4>
           <InputGroup style={{ maxWidth: '300px' }}>
             <Form.Control 
               placeholder="Search events..." 
               value={concertSearch}
-              onChange={(e) => setConcertSearch(e.target.value)}
+              onChange={(e) => {setConcertSearch(e.target.value); setConcertPage(1);}}
               className="rounded-pill px-3 shadow-sm"
             />
           </InputGroup>
         </div>
 
-        <Card className="shadow-sm border-0 mb-5 rounded-4 overflow-hidden">
+        <Card className="shadow-sm border-0 mb-4 rounded-4 overflow-hidden">
           <Table responsive hover className="mb-0 align-middle">
             <thead className="table-dark">
-              <tr>
-                <th>Status</th>
-                <th>Title</th>
-                <th>Venue</th>
-                <th>Date</th>
-                <th className="text-end">Actions</th>
-              </tr>
+              <tr><th>Status</th><th>Title</th><th>Venue</th><th>Date</th><th className="text-end">Actions</th></tr>
             </thead>
             <tbody>
-              {filteredConcerts.map(c => (
+              {currentConcerts.map(c => (
                 <tr key={c.concertId}>
                   <td>{c.isSoldOut ? <Badge bg="danger">SOLD OUT</Badge> : <Badge bg="success">LIVE</Badge>}</td>
                   <td className="fw-bold">{c.concertTitle}</td>
@@ -217,27 +213,40 @@ function AdminDashboard() {
             </tbody>
           </Table>
         </Card>
+        
+        {/* Events Pagination */}
+        {filteredConcerts.length > rowsPerPage && (
+          <div className="d-flex justify-content-center mb-5">
+            <Pagination>
+              {[...Array(Math.ceil(filteredConcerts.length / rowsPerPage))].map((_, i) => (
+                <Pagination.Item key={i+1} active={i+1 === concertPage} onClick={() => setConcertPage(i+1)}>
+                  {i+1}
+                </Pagination.Item>
+              ))}
+            </Pagination>
+          </div>
+        )}
 
         {/* Transactions Table */}
         <div className="d-flex justify-content-between align-items-center mb-3">
-          <h4 className="fw-bold mb-0">Recent Transactions</h4>
+          <h4 className="fw-bold mb-0">Recent Transactions ({filteredBuyers.length})</h4>
           <InputGroup style={{ maxWidth: '300px' }}>
             <Form.Control 
               placeholder="Search by email..." 
               value={buyerSearch}
-              onChange={(e) => setBuyerSearch(e.target.value)}
+              onChange={(e) => {setBuyerSearch(e.target.value); setBuyerPage(1);}}
               className="rounded-pill px-3 shadow-sm"
             />
           </InputGroup>
         </div>
 
-        <Card className="shadow-sm border-0 rounded-4 overflow-hidden">
+        <Card className="shadow-sm border-0 rounded-4 overflow-hidden mb-4">
           <Table responsive className="mb-0 align-middle">
             <thead className="table-light">
               <tr><th>Customer</th><th>Concert</th><th>Tier</th><th>Qty</th><th>Date</th></tr>
             </thead>
             <tbody>
-              {filteredBuyers.map((b, idx) => (
+              {currentBuyers.map((b, idx) => (
                 <tr key={idx}>
                   <td>{b.userEmail}</td>
                   <td className="small fw-bold">{b.concertTitle}</td>
@@ -250,7 +259,20 @@ function AdminDashboard() {
           </Table>
         </Card>
 
-        {/* --- EDIT MODAL (WITH STRIPE IDS) --- */}
+        {/* Buyers Pagination */}
+        {filteredBuyers.length > rowsPerPage && (
+          <div className="d-flex justify-content-center">
+            <Pagination>
+              {[...Array(Math.ceil(filteredBuyers.length / rowsPerPage))].map((_, i) => (
+                <Pagination.Item key={i+1} active={i+1 === buyerPage} onClick={() => setBuyerPage(i+1)}>
+                  {i+1}
+                </Pagination.Item>
+              ))}
+            </Pagination>
+          </div>
+        )}
+
+        {/* --- MODALS (Edit & Add) remain the same as your code --- */}
         <Modal show={showEditModal} onHide={() => setShowEditModal(false)} size="lg" centered>
           {editingConcert && (
             <Form onSubmit={handleUpdateConcert}>
@@ -262,24 +284,15 @@ function AdminDashboard() {
                   <Col md={6}><Form.Label className="small fw-bold">Date</Form.Label><Form.Control type="datetime-local" value={editingConcert.date?.substring(0, 16)} onChange={e => setEditingConcert({...editingConcert, date: e.target.value})} /></Col>
                   <Col md={6}><Form.Label className="small fw-bold">Poster URL</Form.Label><Form.Control value={editingConcert.imageUrl} onChange={e => setEditingConcert({...editingConcert, imageUrl: e.target.value})} /></Col>
                 </Row>
-                
                 <hr />
-                
                 <Row className="g-3 mb-3">
                   <Col md={6}><Form.Label className="small fw-bold text-primary">Regular Price ($)</Form.Label><Form.Control type="number" value={editingConcert.regularPrice} onChange={e => setEditingConcert({...editingConcert, regularPrice: e.target.value})} /></Col>
                   <Col md={6}><Form.Label className="small fw-bold text-primary">Regular Stripe Price ID</Form.Label><Form.Control value={editingConcert.regularStripeId} onChange={e => setEditingConcert({...editingConcert, regularStripeId: e.target.value})} /></Col>
                   <Col md={6}><Form.Label className="small fw-bold text-info">VIP Price ($)</Form.Label><Form.Control type="number" value={editingConcert.vipPrice} onChange={e => setEditingConcert({...editingConcert, vipPrice: e.target.value})} /></Col>
                   <Col md={6}><Form.Label className="small fw-bold text-info">VIP Stripe Price ID</Form.Label><Form.Control value={editingConcert.vipStripeId} onChange={e => setEditingConcert({...editingConcert, vipStripeId: e.target.value})} /></Col>
                 </Row>
-
                 <div className={`p-3 rounded-3 border ${editingConcert.isSoldOut ? 'bg-danger-subtle' : 'bg-success-subtle'}`}>
-                  <Form.Check 
-                    type="switch"
-                    label={editingConcert.isSoldOut ? "CONCERT IS SOLD OUT" : "CONCERT IS ACTIVE"}
-                    checked={editingConcert.isSoldOut}
-                    className="fw-bold"
-                    onChange={e => setEditingConcert({...editingConcert, isSoldOut: e.target.checked})}
-                  />
+                  <Form.Check type="switch" label={editingConcert.isSoldOut ? "CONCERT IS SOLD OUT" : "CONCERT IS ACTIVE"} checked={editingConcert.isSoldOut} className="fw-bold" onChange={e => setEditingConcert({...editingConcert, isSoldOut: e.target.checked})} />
                 </div>
               </Modal.Body>
               <Modal.Footer><Button variant="primary" type="submit" className="px-5 fw-bold">Update Everything</Button></Modal.Footer>
@@ -287,7 +300,6 @@ function AdminDashboard() {
           )}
         </Modal>
 
-        {/* --- ADD MODAL --- */}
         <Modal show={showAddModal} onHide={() => setShowAddModal(false)} size="lg" centered>
            <Form onSubmit={handleAddConcert}>
             <Modal.Header closeButton><Modal.Title className="fw-bold">Create New Event</Modal.Title></Modal.Header>
