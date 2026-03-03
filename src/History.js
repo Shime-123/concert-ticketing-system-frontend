@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Container, Row, Col, Card, Button, Badge, Spinner } from "react-bootstrap";
+import { Container, Row, Col, Card, Button, Spinner } from "react-bootstrap";
 import { Link, Navigate } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
 
@@ -16,7 +16,7 @@ function History() {
           return res.json();
         })
         .then((data) => {
-          console.log("Fetched Tickets:", data); // Check console to see property casing!
+          console.log("Fetched Tickets:", data);
           setTickets(Array.isArray(data) ? data : []);
           setLoading(false);
         })
@@ -53,10 +53,8 @@ function History() {
         ) : tickets.length > 0 ? (
           <Row className="g-4">
             {tickets.map((t) => {
-              // --- BULLETPROOF DATA MAPPING ---
-              // This handles cases where backend returns TicketType vs ticketType
+              // Flexible mapping for C# PascalCase or JS camelCase
               const ticketId = t.TicketId || t.ticketId || "00000000";
-              const typeLabel = t.TicketType || t.ticketType || "Regular";
               const quantity = t.Quantity || t.quantity || 1;
               const concertTitle = t.ConcertTitle || t.concertTitle || "Concert Event";
               const venue = t.Venue || t.venue || "";
@@ -65,16 +63,13 @@ function History() {
               const paymentId = t.PaymentId || t.paymentId || "N/A";
               const customerName = t.CustomerName || t.customerName || user?.name;
 
-              const isVip = typeLabel.toUpperCase().includes("VIP");
-              const displayType = isVip ? "VIP PASS" : "REGULAR";
-
               return (
                 <Col key={ticketId} xs={12} lg={6}>
                   <Card className="bg-dark border-secondary text-white overflow-hidden shadow-lg h-100 border-opacity-50">
                     <Row className="g-0 h-100">
                       
-                      {/* Left Stub */}
-                      <Col xs={4} className={`${isVip ? 'bg-warning' : 'bg-info'} d-flex align-items-center justify-content-center p-3 text-dark`}>
+                      {/* Left Stub - Neutral Gray Color */}
+                      <Col xs={4} className="bg-secondary d-flex align-items-center justify-content-center p-3 text-white">
                         <div className="text-center">
                           <div className="fw-bold h2 mb-0">{quantity}</div>
                           <div className="small fw-bold text-uppercase mb-2">Tickets</div>
@@ -88,10 +83,7 @@ function History() {
                       <Col xs={8}>
                         <Card.Body className="d-flex flex-column justify-content-between h-100 bg-secondary bg-opacity-10">
                           <div>
-                            <div className="d-flex justify-content-between align-items-start mb-2">
-                              <Badge bg={isVip ? "warning" : "info"} text="dark" className="px-2 shadow-sm">
-                                {displayType}
-                              </Badge>
+                            <div className="d-flex justify-content-end mb-2">
                               <small className="text-warning font-monospace small">
                                 #{ticketId.toString().substring(0, 8)}
                               </small>
