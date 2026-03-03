@@ -53,7 +53,7 @@ function History() {
         ) : tickets.length > 0 ? (
           <Row className="g-4">
             {tickets.map((t) => {
-              // Flexible mapping for C# PascalCase or JS camelCase
+              // Mapping data from backend (handling both PascalCase and camelCase)
               const ticketId = t.TicketId || t.ticketId || "00000000";
               const quantity = t.Quantity || t.quantity || 1;
               const concertTitle = t.ConcertTitle || t.concertTitle || "Concert Event";
@@ -68,12 +68,12 @@ function History() {
                   <Card className="bg-dark border-secondary text-white overflow-hidden shadow-lg h-100 border-opacity-50">
                     <Row className="g-0 h-100">
                       
-                      {/* Left Stub - Neutral Gray Color */}
-                      <Col xs={4} className="bg-secondary d-flex align-items-center justify-content-center p-3 text-white">
+                      {/* Left Stub - Neutral Dark Styling */}
+                      <Col xs={4} className="bg-secondary bg-opacity-25 d-flex align-items-center justify-content-center p-3 text-white border-end border-secondary border-opacity-25">
                         <div className="text-center">
-                          <div className="fw-bold h2 mb-0">{quantity}</div>
-                          <div className="small fw-bold text-uppercase mb-2">Tickets</div>
-                          <div className="bg-dark text-white px-2 py-1 rounded x-small fw-bold">
+                          <div className="fw-bold h2 mb-0 text-warning">{quantity}</div>
+                          <div className="small fw-bold text-uppercase mb-2 opacity-75">Tickets</div>
+                          <div className="bg-warning text-dark px-2 py-1 rounded x-small fw-bold">
                             VALID
                           </div>
                         </div>
@@ -81,10 +81,10 @@ function History() {
                       
                       {/* Right Details */}
                       <Col xs={8}>
-                        <Card.Body className="d-flex flex-column justify-content-between h-100 bg-secondary bg-opacity-10">
+                        <Card.Body className="d-flex flex-column justify-content-between h-100">
                           <div>
                             <div className="d-flex justify-content-end mb-2">
-                              <small className="text-warning font-monospace small">
+                              <small className="text-secondary font-monospace small">
                                 #{ticketId.toString().substring(0, 8)}
                               </small>
                             </div>
@@ -96,22 +96,22 @@ function History() {
                             <p className="text-warning mb-0 fw-bold">
                                {concertTitle}
                             </p>
-                            <small className="text-light opacity-75 d-block">
+                            <small className="text-light opacity-50 d-block mt-1">
                                 {venue} {dateText ? `| ${dateText}` : ""}
                             </small>
-                            
-                            <p className="text-light small mt-2 mb-0 opacity-50 text-truncate">
+
+                            <p className="text-light small mt-2 mb-0 opacity-25 text-truncate" style={{ fontSize: '0.7rem' }}>
                               Ref: {paymentId}
                             </p>
                           </div>
                           
-                          <div className="mt-3 pt-2 border-top border-secondary d-flex justify-content-between align-items-center">
+                          <div className="mt-3 pt-2 border-top border-secondary border-opacity-25 d-flex justify-content-between align-items-center">
                             <div>
-                              <span className="text-light small d-block opacity-75">Total Paid</span>
-                              <span className="fw-bold fs-5 text-warning">${price}</span>
+                              <span className="text-light x-small d-block opacity-50 text-uppercase">Total Paid</span>
+                              <span className="fw-bold fs-5 text-white">${price}</span>
                             </div>
-                            <span className="text-uppercase text-light opacity-50 small fw-bold font-monospace tracking-wide">
-                              Ethio Concert
+                            <span className="text-uppercase text-warning opacity-75 small fw-bold font-monospace tracking-tighter">
+                                ETHIO CONCERT
                             </span>
                           </div>
                         </Card.Body>
