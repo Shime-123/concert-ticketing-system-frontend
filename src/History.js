@@ -33,7 +33,6 @@ function History() {
   return (
     <div className="bg-black min-vh-100 text-white py-5">
       <Container>
-        {/* Header Section */}
         <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-5 gap-3">
           <div>
             <h1 className="text-warning fw-bold mb-0 text-uppercase display-5">My Tickets</h1>
@@ -46,7 +45,6 @@ function History() {
           </Link>
         </div>
 
-        {/* Content Section */}
         {loading ? (
           <div className="text-center py-5">
             <Spinner animation="grow" variant="warning" />
@@ -54,34 +52,20 @@ function History() {
         ) : tickets.length > 0 ? (
           <Row className="g-4">
             {tickets.map((t) => {
-              // --- IMPROVED TICKET TYPE LOGIC ---
-              // 1. Try to find the type in various common field names
-              // 2. Check the price as a backup (if Price > 1000 or similar, it's usually VIP)
-              const rawType = t.ticketType || t.TicketType || t.type || "";
-              const price = t.price || t.Price || 0;
-              
-              let isVip = false;
-
-              if (rawType.toUpperCase().includes("VIP")) {
-                isVip = true;
-              } else if (price > 1500) { 
-                // OPTIONAL: Adjust this number based on your actual VIP prices
-                // If the backend forgot the Type field, we guess by price
-                isVip = true; 
-              }
-
+              // ✅ ACCURATE TYPE LOGIC: Using the TicketType sent from the backend join
+              const typeLabel = t.ticketType || t.TicketType || "Regular";
+              const isVip = typeLabel.toUpperCase().includes("VIP");
               const displayType = isVip ? "VIP PASS" : "REGULAR";
-              // ----------------------------------
 
               return (
-                <Col key={t.ticketId || t.TicketId || Math.random()} xs={12} lg={6}>
+                <Col key={t.ticketId || t.TicketId} xs={12} lg={6}>
                   <Card className="bg-dark border-secondary text-white overflow-hidden shadow-lg h-100 border-opacity-50">
                     <Row className="g-0 h-100">
                       
-                      {/* Left Stub */}
+                      {/* Left Stub - Dynamic Color based on type */}
                       <Col xs={4} className={`${isVip ? 'bg-warning' : 'bg-info'} d-flex align-items-center justify-content-center p-3 text-dark`}>
                         <div className="text-center">
-                          <div className="fw-bold h2 mb-0">{t.quantity || t.Quantity || 1}</div>
+                          <div className="fw-bold h2 mb-0">{t.quantity || 1}</div>
                           <div className="small fw-bold text-uppercase mb-2">Tickets</div>
                           <div className="bg-dark text-white px-2 py-1 rounded x-small fw-bold">
                             VALID
@@ -98,27 +82,30 @@ function History() {
                                 {displayType}
                               </Badge>
                               <small className="text-warning font-monospace small">
-                                #{(t.ticketId || t.TicketId || "000").toString().substring(0, 8)}
+                                #{(t.ticketId || "00000000").toString().substring(0, 8)}
                               </small>
                             </div>
                             
                             <Card.Title className="fs-4 fw-bold mb-1 text-white">
-                              {t.customerName || t.CustomerName || user?.name}
+                              {t.customerName || user?.name}
                             </Card.Title>
                             
                             <p className="text-warning mb-0 fw-bold">
-                               {t.concertTitle || t.ConcertTitle || "Concert Event"}
+                               {t.concertTitle}
                             </p>
+                            <small className="text-light opacity-75 d-block">
+                                {t.venue} | {t.date}
+                            </small>
                             
                             <p className="text-light small mt-2 mb-0 opacity-50">
-                              Ref: {t.paymentId || t.PaymentId || "N/A"}
+                              Ref: {t.paymentId?.substring(0, 15)}...
                             </p>
                           </div>
                           
                           <div className="mt-3 pt-2 border-top border-secondary d-flex justify-content-between align-items-center">
                             <div>
                               <span className="text-light small d-block opacity-75">Total Paid</span>
-                              <span className="fw-bold fs-5 text-warning">${price}</span>
+                              <span className="fw-bold fs-5 text-warning">${t.price}</span>
                             </div>
                             <span className="text-uppercase text-light opacity-50 small fw-bold font-monospace tracking-wide">
                               Ethio Concert
