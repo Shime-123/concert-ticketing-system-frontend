@@ -16,6 +16,7 @@ function History() {
           return res.json();
         })
         .then((data) => {
+          console.log("Fetched Tickets:", data); // Check console to see property casing!
           setTickets(Array.isArray(data) ? data : []);
           setLoading(false);
         })
@@ -52,20 +53,30 @@ function History() {
         ) : tickets.length > 0 ? (
           <Row className="g-4">
             {tickets.map((t) => {
-              // ✅ ACCURATE TYPE LOGIC: Using the TicketType sent from the backend join
-              const typeLabel = t.ticketType || t.TicketType || "Regular";
+              // --- BULLETPROOF DATA MAPPING ---
+              // This handles cases where backend returns TicketType vs ticketType
+              const ticketId = t.TicketId || t.ticketId || "00000000";
+              const typeLabel = t.TicketType || t.ticketType || "Regular";
+              const quantity = t.Quantity || t.quantity || 1;
+              const concertTitle = t.ConcertTitle || t.concertTitle || "Concert Event";
+              const venue = t.Venue || t.venue || "";
+              const dateText = t.Date || t.date || "";
+              const price = t.Price || t.price || 0;
+              const paymentId = t.PaymentId || t.paymentId || "N/A";
+              const customerName = t.CustomerName || t.customerName || user?.name;
+
               const isVip = typeLabel.toUpperCase().includes("VIP");
               const displayType = isVip ? "VIP PASS" : "REGULAR";
 
               return (
-                <Col key={t.ticketId || t.TicketId} xs={12} lg={6}>
+                <Col key={ticketId} xs={12} lg={6}>
                   <Card className="bg-dark border-secondary text-white overflow-hidden shadow-lg h-100 border-opacity-50">
                     <Row className="g-0 h-100">
                       
-                      {/* Left Stub - Dynamic Color based on type */}
+                      {/* Left Stub */}
                       <Col xs={4} className={`${isVip ? 'bg-warning' : 'bg-info'} d-flex align-items-center justify-content-center p-3 text-dark`}>
                         <div className="text-center">
-                          <div className="fw-bold h2 mb-0">{t.quantity || 1}</div>
+                          <div className="fw-bold h2 mb-0">{quantity}</div>
                           <div className="small fw-bold text-uppercase mb-2">Tickets</div>
                           <div className="bg-dark text-white px-2 py-1 rounded x-small fw-bold">
                             VALID
@@ -82,30 +93,30 @@ function History() {
                                 {displayType}
                               </Badge>
                               <small className="text-warning font-monospace small">
-                                #{(t.ticketId || "00000000").toString().substring(0, 8)}
+                                #{ticketId.toString().substring(0, 8)}
                               </small>
                             </div>
                             
                             <Card.Title className="fs-4 fw-bold mb-1 text-white">
-                              {t.customerName || user?.name}
+                              {customerName}
                             </Card.Title>
                             
                             <p className="text-warning mb-0 fw-bold">
-                               {t.concertTitle}
+                               {concertTitle}
                             </p>
                             <small className="text-light opacity-75 d-block">
-                                {t.venue} | {t.date}
+                                {venue} {dateText ? `| ${dateText}` : ""}
                             </small>
                             
-                            <p className="text-light small mt-2 mb-0 opacity-50">
-                              Ref: {t.paymentId?.substring(0, 15)}...
+                            <p className="text-light small mt-2 mb-0 opacity-50 text-truncate">
+                              Ref: {paymentId}
                             </p>
                           </div>
                           
                           <div className="mt-3 pt-2 border-top border-secondary d-flex justify-content-between align-items-center">
                             <div>
                               <span className="text-light small d-block opacity-75">Total Paid</span>
-                              <span className="fw-bold fs-5 text-warning">${t.price}</span>
+                              <span className="fw-bold fs-5 text-warning">${price}</span>
                             </div>
                             <span className="text-uppercase text-light opacity-50 small fw-bold font-monospace tracking-wide">
                               Ethio Concert
