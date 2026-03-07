@@ -6,11 +6,11 @@ import { Container, Button, Spinner } from "react-bootstrap";
 
 function Success() {
   const [searchParams] = useSearchParams();
-  const { user } = useAuth();
+  const { user } = useAuth(); // Logged-in Buyer
   const sessionId = searchParams.get('session_id');
   const [isProcessing, setIsProcessing] = useState(true);
   
-  // State to hold the actual recipient info returned from the server
+  // State to hold the data returned from the API
   const [recipientInfo, setRecipientInfo] = useState({ name: "", email: "" });
 
   const [dimensions, setDimensions] = useState({
@@ -23,6 +23,7 @@ function Success() {
     window.addEventListener('resize', handleResize);
 
     if (sessionId) {
+      // 1. Call the Finalize API to process the transaction and get recipient details
       fetch(`${process.env.REACT_APP_API_URL}/api/Stripe/finalize`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -32,21 +33,22 @@ function Success() {
           userName: user?.name || ""
         })
       })
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) throw new Error("Failed to finalize");
+        return res.json();
+      })
       .then(data => {
-        // Capture the recipient details from the backend response
+        // 2. Set the recipient details from the BACKEND response
         setRecipientInfo({
-          name: data.recipientName || user?.name || "Music Fan",
-          email: data.recipientEmail || user?.email
+          name: data.recipientName || "Valued Guest",
+          email: data.recipientEmail || "your email"
         });
         setIsProcessing(false);
       })
       .catch((err) => {
-        console.error("Finalize error:", err);
+        console.error("Finalization error:", err);
         setIsProcessing(false);
       });
-    } else {
-      setTimeout(() => setIsProcessing(false), 2000);
     }
 
     return () => window.removeEventListener('resize', handleResize);
@@ -54,51 +56,66 @@ function Success() {
 
   return (
     <div className="bg-black min-vh-100 w-100 d-flex flex-column align-items-center justify-content-center text-white position-relative overflow-hidden">
-      <Confetti 
-        width={dimensions.width} 
-        height={dimensions.height} 
-        numberOfPieces={isProcessing ? 0 : 300} 
-        recycle={false}
-        gravity={0.2}
-        colors={['#ffc107', '#ffffff']} 
-      />
+      {/* Confetti effect fires once processing is done */}
+      {!isProcessing && (
+        <Confetti 
+          width={dimensions.width} 
+          height={dimensions.height} 
+          numberOfPieces={300} 
+          recycle={false}
+          gravity={0.15}
+          colors={['#ffc107', '#ffffff', '#ffeb3b']} 
+        />
+      )}
       
       <Container className="text-center position-relative" style={{ zIndex: 2 }}>
         {isProcessing ? (
           <div className="py-5">
-            <Spinner animation="grow" variant="warning" size="xl" className="mb-4" />
-            <h1 className="display-4 fw-bold text-warning">Verifying Payment...</h1>
-            <p className="lead text-secondary">Hang tight, we're generating your tickets.</p>
+            <Spinner animation="border" variant="warning" style={{ width: '4rem', height: '4rem' }} className="mb-4" />
+            <h1 className="display-5 fw-bold text-warning animate__animated animate__pulse animate__infinite">
+              Generating Your Tickets...
+            </h1>
+            <p className="lead text-secondary">Securing your spot at the event.</p>
           </div>
         ) : (
-          <div className="animate__animated animate__fadeIn">
+          <div className="animate__animated animate__fadeInUp">
             <div className="mb-4">
-              <i className="bi bi-check-circle-fill text-warning" style={{ fontSize: "5rem" }}></i>
+              <div className="d-inline-block p-4 rounded-circle bg-warning bg-opacity-10 mb-3">
+                <i className="bi bi-check2-circle text-warning" style={{ fontSize: "5rem" }}></i>
+              </div>
             </div>
-            <h1 className="display-2 fw-black text-uppercase mb-2">Success!</h1>
             
-            {/* Display the Recipient's Name */}
+            <h1 className="display-2 fw-black text-uppercase mb-2">Order Confirmed!</h1>
+            
             <h2 className="h3 text-warning mb-4">
-              You're going to the show, {recipientInfo.name.split(' ')[0]}!
+              {/* Uses Recipient Name from Backend */}
+              The show is ready for you, {recipientInfo.name.split(' ')[0]}!
             </h2>
             
-            <p className="lead text-secondary mx-auto mb-5" style={{ maxWidth: "700px" }}>
-              A confirmation email with the PDF ticket has been sent to <strong>{recipientInfo.email}</strong>. 
-              {user?.email === recipientInfo.email ? (
-                " You can also find your QR-coded tickets in your purchase history."
-              ) : (
-                ` Since you purchased this for ${recipientInfo.name}, they will receive the tickets directly.`
-              )}
-            </p>
+            <div className="bg-dark bg-opacity-50 p-4 rounded-4 mx-auto mb-5 border border-secondary border-opacity-25" style={{ maxWidth: "600px" }}>
+              <p className="lead text-white mb-0">
+                A confirmation email with the ticket has been sent to:
+                <br />
+                <strong className="text-warning">{recipientInfo.email}</strong>
+              </p>
+              
+              <hr className="my-3 opacity-25" />
+              
+              <small className="text-secondary">
+                {user?.email === recipientInfo.email 
+                  ? "Since this is your account, you can also view and download your tickets in the History section."
+                  : `Your gift for ${recipientInfo.name} has been processed successfully!`}
+              </small>
+            </div>
 
             <div className="d-flex flex-column flex-sm-row gap-3 justify-content-center align-items-center">
-              {/* Only show "View My Tickets" if the buyer is the one who logged in */}
+              {/* Only show History button if the buyer is the recipient */}
               {user?.email === recipientInfo.email && (
                 <Button 
                   as={Link} 
                   to="/history" 
                   variant="warning" 
-                  className="btn-lg fw-bold px-5 py-3 rounded-pill shadow-lg hover-scale"
+                  className="btn-lg fw-bold px-5 py-3 rounded-pill shadow-lg"
                 >
                   VIEW MY TICKETS
                 </Button>
@@ -110,16 +127,16 @@ function Success() {
                 variant="outline-light" 
                 className="btn-lg px-5 py-3 rounded-pill"
               >
-                BACK HOME
+                GO TO HOME
               </Button>
             </div>
           </div>
         )}
       </Container>
 
-      {/* Background Glow Effect */}
+      {/* Aesthetic Background Glow */}
       <div className="position-absolute top-50 start-50 translate-middle bg-warning rounded-circle opacity-10" 
-           style={{ width: '500px', height: '500px', filter: 'blur(100px)' }}></div>
+           style={{ width: '600px', height: '600px', filter: 'blur(120px)' }}></div>
     </div>
   );
 }
