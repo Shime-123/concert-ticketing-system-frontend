@@ -50,38 +50,55 @@ function Success() {
         );
     }
 
-    return (
-        <div className="bg-black min-vh-100 d-flex align-items-center justify-content-center text-white text-center">
-            <Confetti recycle={false} numberOfPieces={500} />
-            <Container>
-                <i className="bi bi-check-circle-fill text-success" style={{ fontSize: "5rem" }}></i>
-                
-                <h1 className="display-3 fw-bold mt-4">Success!</h1>
-                
-                {/* CRITICAL FIX: 
-                   We use recipientInfo.name (from Stripe) 
-                   NOT user.name (from Login)
-                */}
-                <h2 className="text-warning">
-                    You're going to the show, {recipientInfo.name || "Guest"}!
-                </h2>
+return (
+    <div className="bg-black min-vh-100 d-flex align-items-center justify-content-center text-white text-center">
+        {!isProcessing && <Confetti recycle={false} numberOfPieces={500} />}
+        
+        <Container>
+            {isProcessing ? (
+                <>
+                    <Spinner animation="border" variant="warning" className="mb-3" />
+                    <h2>Processing your tickets...</h2>
+                </>
+            ) : (
+                <div className="animate__animated animate__fadeIn">
+                    <i className="bi bi-check-circle-fill text-success" style={{ fontSize: "5rem" }}></i>
+                    <h1 className="display-3 fw-bold mt-4">Success!</h1>
+                    
+                    {/* FORCE the use of recipientInfo. 
+                      Do NOT use 'user.name' here at all.
+                    */}
+                    <h2 className="text-warning">
+                        You're going to the show, {recipientInfo.name || "Guest"}!
+                    </h2>
 
-                <p className="lead mt-4">
-                    A confirmation email has been sent to: <br />
-                    <strong className="fs-4 text-info">{recipientInfo.email}</strong>
-                </p>
+                    <p className="lead mt-4">
+                        A confirmation email has been sent to: <br />
+                        <strong className="fs-4 text-info">
+                            {recipientInfo.email || "the email provided at checkout"}
+                        </strong>
+                    </p>
 
-                <div className="mt-5 d-flex gap-3 justify-content-center">
-                    <Button as={Link} to="/history" variant="warning" size="lg">
-                        View Purchase History
-                    </Button>
-                    <Button as={Link} to="/" variant="outline-light" size="lg">
-                        Home
-                    </Button>
+                    {/* Logic to show a specific message if buying for someone else */}
+                    {user?.email !== recipientInfo.email && (
+                        <p className="text-secondary small">
+                            (Purchased by {user?.name})
+                        </p>
+                    )}
+
+                    <div className="mt-5 d-flex gap-3 justify-content-center">
+                        <Button as={Link} to="/history" variant="warning" size="lg">
+                            View Purchase History
+                        </Button>
+                        <Button as={Link} to="/" variant="outline-light" size="lg">
+                            Home
+                        </Button>
+                    </div>
                 </div>
-            </Container>
-        </div>
-    );
+            )}
+        </Container>
+    </div>
+);
 }
 
 export default Success;
