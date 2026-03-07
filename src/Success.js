@@ -9,8 +9,10 @@ function Success() {
   const { user } = useAuth();
   const sessionId = searchParams.get('session_id');
   const [isProcessing, setIsProcessing] = useState(true);
+  
+  // State to hold the actual recipient info returned from the server
+  const [recipientInfo, setRecipientInfo] = useState({ name: "", email: "" });
 
-  // Manual window size state to avoid 'react-use' error
   const [dimensions, setDimensions] = useState({
     width: window.innerWidth,
     height: window.innerHeight
@@ -20,18 +22,29 @@ function Success() {
     const handleResize = () => setDimensions({ width: window.innerWidth, height: window.innerHeight });
     window.addEventListener('resize', handleResize);
 
-    if (sessionId && user?.email) {
+    if (sessionId) {
       fetch(`${process.env.REACT_APP_API_URL}/api/Stripe/finalize`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           sessionId: sessionId,
-          userEmail: user.email,
-          userName: user.name
+          userEmail: user?.email || "", 
+          userName: user?.name || ""
         })
       })
-      .then(res => { if (res.ok) setIsProcessing(false); })
-      .catch(() => setIsProcessing(false));
+      .then(res => res.json())
+      .then(data => {
+        // Capture the recipient details from the backend response
+        setRecipientInfo({
+          name: data.recipientName || user?.name || "Music Fan",
+          email: data.recipientEmail || user?.email
+        });
+        setIsProcessing(false);
+      })
+      .catch((err) => {
+        console.error("Finalize error:", err);
+        setIsProcessing(false);
+      });
     } else {
       setTimeout(() => setIsProcessing(false), 2000);
     }
@@ -60,25 +73,37 @@ function Success() {
         ) : (
           <div className="animate__animated animate__fadeIn">
             <div className="mb-4">
-              <i className="bi bi-ticket-perforated text-warning" style={{ fontSize: "5rem" }}></i>
+              <i className="bi bi-check-circle-fill text-warning" style={{ fontSize: "5rem" }}></i>
             </div>
             <h1 className="display-2 fw-black text-uppercase mb-2">Success!</h1>
-            <h2 className="h3 text-warning mb-4">You're going to the show, {user?.name?.split(' ')[0]}!</h2>
+            
+            {/* Display the Recipient's Name */}
+            <h2 className="h3 text-warning mb-4">
+              You're going to the show, {recipientInfo.name.split(' ')[0]}!
+            </h2>
             
             <p className="lead text-secondary mx-auto mb-5" style={{ maxWidth: "700px" }}>
-              A confirmation email has been sent to <strong>{user?.email}</strong>. 
-              You can find your QR-coded tickets in your purchase history.
+              A confirmation email with the PDF ticket has been sent to <strong>{recipientInfo.email}</strong>. 
+              {user?.email === recipientInfo.email ? (
+                " You can also find your QR-coded tickets in your purchase history."
+              ) : (
+                ` Since you purchased this for ${recipientInfo.name}, they will receive the tickets directly.`
+              )}
             </p>
 
             <div className="d-flex flex-column flex-sm-row gap-3 justify-content-center align-items-center">
-              <Button 
-                as={Link} 
-                to="/history" 
-                variant="warning" 
-                className="btn-lg fw-bold px-5 py-3 rounded-pill shadow-lg hover-scale"
-              >
-                VIEW MY TICKETS
-              </Button>
+              {/* Only show "View My Tickets" if the buyer is the one who logged in */}
+              {user?.email === recipientInfo.email && (
+                <Button 
+                  as={Link} 
+                  to="/history" 
+                  variant="warning" 
+                  className="btn-lg fw-bold px-5 py-3 rounded-pill shadow-lg hover-scale"
+                >
+                  VIEW MY TICKETS
+                </Button>
+              )}
+              
               <Button 
                 as={Link} 
                 to="/" 

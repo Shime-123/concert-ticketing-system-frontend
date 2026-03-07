@@ -10,7 +10,7 @@ A modern, high-performance "Discovery Hub" built with **React** and **Tailwind C
 
 ### 📂 Folder Structure
 * `/src`: Main application logic.
-* `/src/components`: Reusable UI elements (Modals, Artist Cards).
+* `/src/components`: Reusable UI elements (Modals, concertTitle Cards).
 * `/src/index.css`: Tailwind CSS configurations and global dark theme.
 
 ### 🛠️ Tech Stack
