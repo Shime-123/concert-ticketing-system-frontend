@@ -124,27 +124,82 @@ function AdminDashboard() {
           </Table>
         </Card>
 
-        {/* CONCERT MANAGEMENT SECTION */}
-        <div className="d-flex justify-content-between mb-3"><h4 className="fw-bold">Live Events</h4>
-          <InputGroup style={{maxWidth: '250px'}}><Form.Control placeholder="Search..." onChange={(e) => setConcertSearch(e.target.value)} /></InputGroup>
-        </div>
-        <Card className="shadow-sm border-0 mb-5 rounded-4 overflow-hidden">
-          <Table responsive hover className="mb-0">
-            <thead className="table-dark"><tr><th>Status</th><th>Title</th><th>Venue</th><th className="text-end">Actions</th></tr></thead>
-            <tbody>
-              {concerts.filter(c => c.concertTitle.toLowerCase().includes(concertSearch.toLowerCase())).map(c => (
-                <tr key={c.concertId}>
-                  <td>{c.isSoldOut ? <Badge bg="danger">SOLD OUT</Badge> : <Badge bg="success">LIVE</Badge>}</td>
-                  <td className="fw-bold">{c.concertTitle}</td><td>{c.venue}</td>
-                  <td className="text-end">
-                    <Button variant="link" size="sm" onClick={() => { setEditingConcert(c); setShowEditModal(true); }}>Edit</Button>
-                    <Button variant="link" size="sm" className="text-danger" onClick={() => handleDeleteConcert(c.concertId)}>Delete</Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
-        </Card>
+       {/* CONCERT MANAGEMENT SECTION */}
+<div className="d-flex justify-content-between align-items-center mb-3">
+  <h4 className="fw-bold mb-0">Live Events</h4>
+  <div className="d-flex gap-2">
+    <InputGroup style={{ maxWidth: '250px' }}>
+      <Form.Control 
+        placeholder="Search events..." 
+        value={concertSearch}
+        onChange={(e) => setConcertSearch(e.target.value)} 
+        className="rounded-pill px-3 shadow-sm"
+      />
+    </InputGroup>
+    <Button 
+      variant="dark" 
+      className="rounded-pill px-4 shadow-sm" 
+      onClick={() => {
+        setNewConcert({
+          concertTitle: '', venue: '', date: '', imageUrl: '',
+          regularPrice: '', regularStripeId: '', vipPrice: '', vipStripeId: '', isSoldOut: false
+        });
+        setShowAddModal(true);
+      }}
+    >
+      + Create Concert
+    </Button>
+  </div>
+</div>
+
+<Card className="shadow-sm border-0 mb-5 rounded-4 overflow-hidden">
+  <Table responsive hover className="mb-0 align-middle">
+    <thead className="table-dark">
+      <tr>
+        <th>Status</th>
+        <th>Title</th>
+        <th>Venue</th>
+        <th>Date</th>
+        <th className="text-end px-4">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {concerts
+        .filter(c => c.concertTitle.toLowerCase().includes(concertSearch.toLowerCase()))
+        .map(c => (
+          <tr key={c.concertId}>
+            <td>
+              {c.isSoldOut ? <Badge bg="danger">SOLD OUT</Badge> : <Badge bg="success">LIVE</Badge>}
+            </td>
+            <td className="fw-bold">{c.concertTitle}</td>
+            <td>{c.venue}</td>
+            <td className="small text-muted">{new Date(c.date).toLocaleDateString()}</td>
+            <td className="text-end px-4">
+              <Button 
+                variant="outline-primary" 
+                size="sm" 
+                className="me-2 rounded-pill px-3" 
+                onClick={() => { 
+                  setEditingConcert(c); 
+                  setShowEditModal(true); 
+                }}
+              >
+                Edit
+              </Button>
+              <Button 
+                variant="outline-danger" 
+                size="sm" 
+                className="rounded-pill px-3"
+                onClick={() => handleDeleteConcert(c.concertId)}
+              >
+                Delete
+              </Button>
+            </td>
+          </tr>
+        ))}
+    </tbody>
+  </Table>
+</Card>
 
         {/* TRANSACTIONS SECTION */}
         <h4 className="fw-bold mb-3">Sales History</h4>
@@ -164,38 +219,102 @@ function AdminDashboard() {
           ))}
         </Pagination>
 
-        {/* ADD CONCERT MODAL */}
-        <Modal show={showAddModal} onHide={() => setShowAddModal(false)} size="lg">
-          <Form onSubmit={handleAddConcert}>
-            <Modal.Header closeButton><Modal.Title>New Event</Modal.Title></Modal.Header>
-            <Modal.Body><Row className="g-3">
-                <Col md={6}><Form.Label>Title</Form.Label><Form.Control required onChange={e => setNewConcert({...newConcert, concertTitle: e.target.value})} /></Col>
-                <Col md={6}><Form.Label>Venue</Form.Label><Form.Control required onChange={e => setNewConcert({...newConcert, venue: e.target.value})} /></Col>
-                <Col md={6}><Form.Label>Date</Form.Label><Form.Control type="datetime-local" required onChange={e => setNewConcert({...newConcert, date: e.target.value})} /></Col>
-                <Col md={6}><Form.Label>Image URL</Form.Label><Form.Control required onChange={e => setNewConcert({...newConcert, imageUrl: e.target.value})} /></Col>
-                <Col md={3}><Form.Label>Reg Price</Form.Label><Form.Control type="number" required onChange={e => setNewConcert({...newConcert, regularPrice: e.target.value})} /></Col>
-                <Col md={9}><Form.Label>Reg Stripe ID</Form.Label><Form.Control required onChange={e => setNewConcert({...newConcert, regularStripeId: e.target.value})} /></Col>
-                <Col md={3}><Form.Label>VIP Price</Form.Label><Form.Control type="number" required onChange={e => setNewConcert({...newConcert, vipPrice: e.target.value})} /></Col>
-                <Col md={9}><Form.Label>VIP Stripe ID</Form.Label><Form.Control required onChange={e => setNewConcert({...newConcert, vipStripeId: e.target.value})} /></Col>
-            </Row></Modal.Body>
-            <Modal.Footer><Button variant="dark" type="submit">Publish</Button></Modal.Footer>
-          </Form>
-        </Modal>
+<Modal show={showAddModal} onHide={() => setShowAddModal(false)} size="lg" centered>
+  <Form onSubmit={handleAddConcert}>
+    <Modal.Header closeButton className="border-0">
+      <Modal.Title className="fw-bold">Create New Event</Modal.Title>
+    </Modal.Header>
+    <Modal.Body className="p-4">
+      <Row className="g-3">
+        <Col md={6}>
+          <Form.Label className="fw-bold small">Concert Title</Form.Label>
+          <Form.Control required value={newConcert.concertTitle} onChange={e => setNewConcert({...newConcert, concertTitle: e.target.value})} />
+        </Col>
+        <Col md={6}>
+          <Form.Label className="fw-bold small">Venue</Form.Label>
+          <Form.Control required value={newConcert.venue} onChange={e => setNewConcert({...newConcert, venue: e.target.value})} />
+        </Col>
+        <Col md={6}>
+          <Form.Label className="fw-bold small">Date & Time</Form.Label>
+          <Form.Control type="datetime-local" required value={newConcert.date} onChange={e => setNewConcert({...newConcert, date: e.target.value})} />
+        </Col>
+        <Col md={6}>
+          <Form.Label className="fw-bold small">Poster Image URL</Form.Label>
+          <Form.Control required value={newConcert.imageUrl} onChange={e => setNewConcert({...newConcert, imageUrl: e.target.value})} />
+        </Col>
+        <Col md={3}>
+          <Form.Label className="fw-bold small text-primary">Reg Price ($)</Form.Label>
+          <Form.Control type="number" required value={newConcert.regularPrice} onChange={e => setNewConcert({...newConcert, regularPrice: e.target.value})} />
+        </Col>
+        <Col md={9}>
+          <Form.Label className="fw-bold small text-primary">Reg Stripe ID</Form.Label>
+          <Form.Control required value={newConcert.regularStripeId} onChange={e => setNewConcert({...newConcert, regularStripeId: e.target.value})} />
+        </Col>
+        <Col md={3}>
+          <Form.Label className="fw-bold small text-info">VIP Price ($)</Form.Label>
+          <Form.Control type="number" required value={newConcert.vipPrice} onChange={e => setNewConcert({...newConcert, vipPrice: e.target.value})} />
+        </Col>
+        <Col md={9}>
+          <Form.Label className="fw-bold small text-info">VIP Stripe ID</Form.Label>
+          <Form.Control required value={newConcert.vipStripeId} onChange={e => setNewConcert({...newConcert, vipStripeId: e.target.value})} />
+        </Col>
+      </Row>
+    </Modal.Body>
+    <Modal.Footer className="border-0">
+      <Button variant="light" onClick={() => setShowAddModal(false)}>Cancel</Button>
+      <Button variant="dark" type="submit" className="px-4 fw-bold">Publish Event</Button>
+    </Modal.Footer>
+  </Form>
+</Modal>
 
-        {/* EDIT CONCERT MODAL */}
-        <Modal show={showEditModal} onHide={() => setShowEditModal(false)} size="lg">
-          {editingConcert && (
-            <Form onSubmit={handleUpdateConcert}>
-              <Modal.Header closeButton><Modal.Title>Edit Event</Modal.Title></Modal.Header>
-              <Modal.Body><Row className="g-3">
-                <Col md={6}><Form.Label>Title</Form.Label><Form.Control value={editingConcert.concertTitle} onChange={e => setEditingConcert({...editingConcert, concertTitle: e.target.value})} /></Col>
-                <Col md={6}><Form.Label>Venue</Form.Label><Form.Control value={editingConcert.venue} onChange={e => setEditingConcert({...editingConcert, venue: e.target.value})} /></Col>
-                <Col md={12}><Form.Check type="switch" label="Mark as Sold Out" checked={editingConcert.isSoldOut} onChange={e => setEditingConcert({...editingConcert, isSoldOut: e.target.checked})} /></Col>
-              </Row></Modal.Body>
-              <Modal.Footer><Button variant="primary" type="submit">Save Changes</Button></Modal.Footer>
-            </Form>
-          )}
-        </Modal>
+<Modal show={showEditModal} onHide={() => setShowEditModal(false)} size="lg" centered>
+  {editingConcert && (
+    <Form onSubmit={handleUpdateConcert}>
+      <Modal.Header closeButton className="border-0">
+        <Modal.Title className="fw-bold text-primary">Update: {editingConcert.concertTitle}</Modal.Title>
+      </Modal.Header>
+      <Modal.Body className="p-4">
+        <Row className="g-3">
+          <Col md={6}>
+            <Form.Label className="fw-bold small">Title</Form.Label>
+            <Form.Control value={editingConcert.concertTitle} onChange={e => setEditingConcert({...editingConcert, concertTitle: e.target.value})} />
+          </Col>
+          <Col md={6}>
+            <Form.Label className="fw-bold small">Venue</Form.Label>
+            <Form.Control value={editingConcert.venue} onChange={e => setEditingConcert({...editingConcert, venue: e.target.value})} />
+          </Col>
+          <Col md={6}>
+            <Form.Label className="fw-bold small">Date</Form.Label>
+            <Form.Control 
+              type="datetime-local" 
+              value={editingConcert.date?.substring(0, 16)} 
+              onChange={e => setEditingConcert({...editingConcert, date: e.target.value})} 
+            />
+          </Col>
+          <Col md={6}>
+            <Form.Label className="fw-bold small">Image URL</Form.Label>
+            <Form.Control value={editingConcert.imageUrl} onChange={e => setEditingConcert({...editingConcert, imageUrl: e.target.value})} />
+          </Col>
+          <Col md={12}>
+            <div className={`p-3 rounded-3 border ${editingConcert.isSoldOut ? 'bg-danger-subtle border-danger' : 'bg-success-subtle border-success'}`}>
+              <Form.Check 
+                type="switch" 
+                label={editingConcert.isSoldOut ? "CONCERT IS SOLD OUT" : "CONCERT IS LIVE"} 
+                checked={editingConcert.isSoldOut} 
+                className="fw-bold"
+                onChange={e => setEditingConcert({...editingConcert, isSoldOut: e.target.checked})} 
+              />
+            </div>
+          </Col>
+        </Row>
+      </Modal.Body>
+      <Modal.Footer className="border-0">
+        <Button variant="outline-secondary" onClick={() => setShowEditModal(false)}>Cancel</Button>
+        <Button variant="primary" type="submit" className="px-5 fw-bold shadow">Save Changes</Button>
+      </Modal.Footer>
+    </Form>
+  )}
+</Modal>
 
       </Container>
     </div>
