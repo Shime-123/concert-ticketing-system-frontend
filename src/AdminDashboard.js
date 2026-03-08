@@ -49,7 +49,22 @@ function AdminDashboard() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  // --- 2. MODAL & FORM HANDLERS ---
+  // --- 2. USER MANAGEMENT HANDLERS ---
+  const handleToggleSuspension = async (email) => {
+    await fetch(`${baseUrl}/api/Admin/toggle-suspension/${email}`, { method: 'PUT' });
+    fetchData(); // Refresh list
+  };
+
+  const handleRoleUpdate = async (email, role) => {
+    await fetch(`${baseUrl}/api/Admin/update-role`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, role })
+    });
+    fetchData(); // Refresh list
+  };
+
+  // --- 3. CONCERT MODAL & CRUD ---
   const handleOpenModal = (concert = null) => {
     if (concert) {
       setIsEditMode(true);
@@ -104,7 +119,7 @@ function AdminDashboard() {
       setShowModal(false);
       fetchData();
     } else {
-      alert("Error saving concert data. Check console.");
+      alert("Error saving concert data.");
     }
   };
 
@@ -113,11 +128,6 @@ function AdminDashboard() {
       await fetch(`${baseUrl}/api/Admin/delete-concert/${id}`, { method: 'DELETE' });
       fetchData();
     }
-  };
-
-  const handleToggleSuspension = async (email) => {
-    await fetch(`${baseUrl}/api/Admin/toggle-suspension/${email}`, { method: 'PUT' });
-    fetchData();
   };
 
   if (loading) return <Container className="text-center py-5"><Spinner animation="border" variant="warning" /></Container>;
@@ -136,7 +146,7 @@ function AdminDashboard() {
           <Col md={6}><Card className="bg-success text-white border-0 shadow-sm p-4 rounded-4"><h6>Tickets Sold</h6><h2>{stats.totalTickets}</h2></Card></Col>
         </Row>
 
-        {/* CONCERTS - MOVED TO TOP AS REQUESTED */}
+        {/* CONCERTS SECTION */}
         <div className="d-flex justify-content-between align-items-center mb-3">
           <h4 className="fw-bold mb-0">Live Events</h4>
           <InputGroup style={{ maxWidth: '300px' }}>
@@ -158,7 +168,7 @@ function AdminDashboard() {
             <tbody>
               {concerts
                 .filter(c => c.concertTitle.toLowerCase().includes(concertSearch.toLowerCase()))
-                .sort((a, b) => new Date(a.date) - new Date(b.date)) // Sort by date
+                .sort((a, b) => new Date(a.date) - new Date(b.date))
                 .map(c => (
                   <tr key={c.concertId}>
                     <td>{c.isSoldOut ? <Badge bg="danger">SOLD OUT</Badge> : <Badge bg="success">LIVE</Badge>}</td>
@@ -186,11 +196,12 @@ function AdminDashboard() {
                   <td>{u.name}</td><td>{u.email}</td>
                   <td>
                     <Form.Select size="sm" value={u.role} onChange={(e) => handleRoleUpdate(u.email, e.target.value)}>
-                      <option value="Customer">Customer</option><option value="Admin">Admin</option>
+                      <option value="Customer">Customer</option>
+                      <option value="Admin">Admin</option>
                     </Form.Select>
                   </td>
                   <td><Badge bg={u.isSuspended ? 'danger' : 'success'}>{u.isSuspended ? 'Suspended' : 'Active'}</Badge></td>
-                  <td><Button size="sm" variant="outline-dark" onClick={() => handleToggleSuspension(u.email)}>suspenend</Button></td>
+                  <td><Button size="sm" variant="outline-dark" onClick={() => handleToggleSuspension(u.email)}>Toggle Status</Button></td>
                 </tr>
               ))}
             </tbody>
