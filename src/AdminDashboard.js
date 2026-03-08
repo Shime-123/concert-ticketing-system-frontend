@@ -15,7 +15,7 @@ function AdminDashboard() {
 
   // Pagination States
   const [userPage, setUserPage] = useState(1);
-  const [salesPage, setSalesPage] = useState(1);
+  const [salesPage, setSalesPage] = useState(1); 
   const itemsPerPage = 5;
 
   const [showModal, setShowModal] = useState(false);
@@ -35,47 +35,38 @@ function AdminDashboard() {
 
   const baseUrl = process.env.REACT_APP_API_URL || "https://concert-ticketing-system-backend.onrender.com";
 
-  // --- 1. CORE FETCH LOGIC ---
+  // --- 1. DATA FETCHING (FETCH ALL) ---
   const fetchData = useCallback(async () => {
     try {
-      // Note: We fetch stats without the 'page' param to get ALL recent purchases for full-list searching
       const [statsRes, concertRes, usersRes] = await Promise.all([
-        fetch(`${baseUrl}/api/Admin/stats`), 
+        fetch(`${baseUrl}/api/Admin/stats`), // Fetches all sales history for local pagination
         fetch(`${baseUrl}/api/Concerts`),
         fetch(`${baseUrl}/api/Admin/users`)
       ]);
       
       const sData = await statsRes.json();
       setStats({ totalRevenue: sData.totalRevenue, totalTickets: sData.totalTickets });
-      setBuyers(sData.recentPurchases || []);
+      setBuyers(sData.recentPurchases || []); // Full list of buyers
       
-      const cData = await concertRes.json();
-      setConcerts(cData);
-      
-      const uData = await usersRes.json();
-      setUsers(uData);
-      
+      setConcerts(await concertRes.json());
+      setUsers(await usersRes.json());
       setLoading(false);
     } catch (err) { 
-      console.error("Fetch error:", err); 
+      console.error("Dashboard Load Error:", err); 
       setLoading(false); 
     }
   }, [baseUrl]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  // --- 📥 Export Logic ---
+  // --- 2. EXPORT LOGIC ---
   const exportToCSV = () => {
     if (buyers.length === 0) return alert("No data to export");
     const headers = ["Customer Email", "Concert Title", "Ticket Type", "Quantity", "Purchase Date"];
     const csvContent = [
       headers.join(","),
       ...buyers.map(b => [
-        `"${b.userEmail}"`, 
-        `"${b.concertTitle}"`, 
-        `"${b.ticketType}"`, 
-        b.quantity, 
-        `"${new Date(b.createdAt || Date.now()).toLocaleDateString()}"`
+        `"${b.userEmail}"`, `"${b.concertTitle}"`, `"${b.ticketType}"`, b.quantity, `"${new Date(b.createdAt || Date.now()).toLocaleDateString()}"`
       ].join(","))
     ].join("\n");
 
@@ -83,11 +74,27 @@ function AdminDashboard() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `EthioConcert_Sales_${new Date().toISOString().split('T')[0]}.csv`;
+    link.download = `Sales_Report_${new Date().toISOString().split('T')[0]}.csv`;
     link.click();
   };
 
-  // --- 2. HANDLERS ---
+  // --- 3. SEARCH & PAGINATION CALCULATIONS ---
+  
+  // Sales Logic (Frontend Pagination)
+  const filteredSales = buyers.filter(b => 
+    b.userEmail.toLowerCase().includes(salesSearch.toLowerCase()) || 
+    b.concertTitle.toLowerCase().includes(salesSearch.toLowerCase())
+  );
+  const paginatedSales = filteredSales.slice((salesPage - 1) * itemsPerPage, salesPage * itemsPerPage);
+
+  // User Logic (Frontend Pagination)
+  const filteredUsers = users.filter(u => 
+    u.name.toLowerCase().includes(userSearch.toLowerCase()) || 
+    u.email.toLowerCase().includes(userSearch.toLowerCase())
+  );
+  const paginatedUsers = filteredUsers.slice((userPage - 1) * itemsPerPage, userPage * itemsPerPage);
+
+  // --- 4. ACTION HANDLERS ---
   const handleToggleSuspension = async (email) => {
     await fetch(`${baseUrl}/api/Admin/toggle-suspension/${email}`, { method: 'PUT' });
     fetchData();
@@ -108,12 +115,7 @@ function AdminDashboard() {
       setFormData({ ...concert, date: concert.date ? concert.date.substring(0, 16) : "" });
     } else {
       setIsEditMode(false);
-      setFormData({ 
-        concertId: 0, concertTitle: '', venue: '', 
-        date: new Date().toISOString().slice(0, 16), 
-        imageUrl: '', regularPrice: 0, regularStripeId: '', 
-        vipPrice: 0, vipStripeId: '', isSoldOut: false 
-      });
+      setFormData({ concertId: 0, concertTitle: '', venue: '', date: new Date().toISOString().slice(0, 16), imageUrl: '', regularPrice: 0, regularStripeId: '', vipPrice: 0, vipStripeId: '', isSoldOut: false });
     }
     setShowModal(true);
   };
@@ -122,7 +124,7 @@ function AdminDashboard() {
     e.preventDefault();
     const endpoint = isEditMode ? `${baseUrl}/api/Admin/update-concert/${formData.concertId}` : `${baseUrl}/api/Admin/add-concert`;
     
-    // Explicitly mapping keys to ensure Backend compatibility
+    // Explicit PascalCase mapping for C# Backend
     const payload = {
       ConcertId: formData.concertId,
       ConcertTitle: formData.concertTitle,
@@ -145,27 +147,11 @@ function AdminDashboard() {
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm("Delete this event?")) {
+    if (window.confirm("Delete this event? This cannot be undone.")) {
       await fetch(`${baseUrl}/api/Admin/delete-concert/${id}`, { method: 'DELETE' });
       fetchData();
     }
   };
-
-  // --- 3. SEARCH & PAGINATION LOGIC (FRONTEND) ---
-  
-  // User Filtering
-  const filteredUsers = users.filter(u => 
-    u.name.toLowerCase().includes(userSearch.toLowerCase()) || 
-    u.email.toLowerCase().includes(userSearch.toLowerCase())
-  );
-  const paginatedUsers = filteredUsers.slice((userPage - 1) * itemsPerPage, userPage * itemsPerPage);
-
-  // Sales Filtering - NOW SEARCHES ALL LOADED BUYERS
-  const filteredSales = buyers.filter(b => 
-    b.userEmail.toLowerCase().includes(salesSearch.toLowerCase()) || 
-    b.concertTitle.toLowerCase().includes(salesSearch.toLowerCase())
-  );
-  const paginatedSales = filteredSales.slice((salesPage - 1) * itemsPerPage, salesPage * itemsPerPage);
 
   if (loading) return <Container className="text-center py-5"><Spinner animation="border" variant="warning" /></Container>;
 
@@ -175,7 +161,7 @@ function AdminDashboard() {
         <div className="d-flex justify-content-between align-items-center mb-4">
           <h1 className="fw-bold text-dark">Admin Dashboard</h1>
           <div className="d-flex gap-2">
-            <Button variant="outline-success" className="rounded-pill px-4 shadow-sm" onClick={exportToCSV}>Export CSV</Button>
+            <Button variant="outline-success" className="rounded-pill px-4" onClick={exportToCSV}>Export CSV</Button>
             <Button variant="dark" className="rounded-pill px-4 shadow-sm" onClick={() => handleOpenModal()}>+ Create Concert</Button>
           </div>
         </div>
@@ -186,7 +172,7 @@ function AdminDashboard() {
           <Col md={6}><Card className="bg-success text-white border-0 shadow-sm p-4 rounded-4"><h6>Tickets Sold</h6><h2>{stats.totalTickets}</h2></Card></Col>
         </Row>
 
-        {/* CONCERTS */}
+        {/* CONCERTS SECTION */}
         <div className="d-flex justify-content-between align-items-center mb-3">
           <h4 className="fw-bold mb-0">Live Events</h4>
           <InputGroup style={{ maxWidth: '300px' }}>
@@ -213,7 +199,7 @@ function AdminDashboard() {
           </Table>
         </Card>
 
-        {/* USER CONTROL */}
+        {/* USERS SECTION */}
         <div className="d-flex justify-content-between align-items-center mb-3">
           <h4 className="fw-bold mb-0">User Control</h4>
           <InputGroup style={{ maxWidth: '300px' }}>
@@ -245,7 +231,7 @@ function AdminDashboard() {
           </Pagination>
         </Card>
 
-        {/* SALES HISTORY */}
+        {/* SALES HISTORY SECTION (FIXED 13+ PAGES) */}
         <div className="d-flex justify-content-between align-items-center mb-3">
           <h4 className="fw-bold mb-0">Sales History</h4>
           <InputGroup style={{ maxWidth: '300px' }}>
@@ -260,7 +246,7 @@ function AdminDashboard() {
                 <tr key={i}>
                   <td>{b.userEmail}</td>
                   <td className="small">{b.concertTitle}</td>
-                  <td><Badge bg="info" text="dark">{b.ticketType}</Badge></td>
+                  <td><Badge bg="info" text="dark" className="small">{b.ticketType}</Badge></td>
                   <td>{b.quantity}</td>
                   <td className="small text-muted">{new Date(b.createdAt).toLocaleDateString()}</td>
                 </tr>
@@ -274,27 +260,26 @@ function AdminDashboard() {
           </Pagination>
         </Card>
 
-        {/* MODAL */}
+        {/* UNIFIED MODAL FOR ADD/EDIT */}
         <Modal show={showModal} onHide={() => setShowModal(false)} size="lg" centered>
           <Form onSubmit={handleSubmit}>
             <Modal.Header closeButton className="border-0"><Modal.Title className="fw-bold">{isEditMode ? `Edit: ${formData.concertTitle}` : 'Create New Concert'}</Modal.Title></Modal.Header>
             <Modal.Body className="p-4">
               <Row className="g-3">
-                <Col md={6}><Form.Label className="small fw-bold">Concert Title</Form.Label><Form.Control required value={formData.concertTitle} onChange={e => setFormData({...formData, concertTitle: e.target.value})} /></Col>
-                <Col md={6}><Form.Label className="small fw-bold">Venue</Form.Label><Form.Control required value={formData.venue} onChange={e => setFormData({...formData, venue: e.target.value})} /></Col>
-                <Col md={6}><Form.Label className="small fw-bold">Date & Time</Form.Label><Form.Control type="datetime-local" required value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} /></Col>
-                <Col md={6}><Form.Label className="small fw-bold">Image URL</Form.Label><Form.Control required value={formData.imageUrl} onChange={e => setFormData({...formData, imageUrl: e.target.value})} /></Col>
-                <Col md={3}><Form.Label className="small fw-bold text-primary">Reg Price ($)</Form.Label><Form.Control type="number" step="0.01" required value={formData.regularPrice} onChange={e => setFormData({...formData, regularPrice: e.target.value})} /></Col>
-                <Col md={9}><Form.Label className="small fw-bold text-primary">Reg Stripe ID</Form.Label><Form.Control required value={formData.regularStripeId} onChange={e => setFormData({...formData, regularStripeId: e.target.value})} /></Col>
-                <Col md={3}><Form.Label className="small fw-bold text-info">VIP Price ($)</Form.Label><Form.Control type="number" step="0.01" required value={formData.vipPrice} onChange={e => setFormData({...formData, vipPrice: e.target.value})} /></Col>
-                <Col md={9}><Form.Label className="small fw-bold text-info">VIP Stripe ID</Form.Label><Form.Control required value={formData.vipStripeId} onChange={e => setFormData({...formData, vipStripeId: e.target.value})} /></Col>
+                <Col md={6}><Form.Label className="fw-bold small">Concert Title</Form.Label><Form.Control required value={formData.concertTitle} onChange={e => setFormData({...formData, concertTitle: e.target.value})} /></Col>
+                <Col md={6}><Form.Label className="fw-bold small">Venue</Form.Label><Form.Control required value={formData.venue} onChange={e => setFormData({...formData, venue: e.target.value})} /></Col>
+                <Col md={6}><Form.Label className="fw-bold small">Date & Time</Form.Label><Form.Control type="datetime-local" required value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} /></Col>
+                <Col md={6}><Form.Label className="fw-bold small">Image URL</Form.Label><Form.Control required value={formData.imageUrl} onChange={e => setFormData({...formData, imageUrl: e.target.value})} /></Col>
+                <Col md={3}><Form.Label className="fw-bold small text-primary">Reg Price ($)</Form.Label><Form.Control type="number" step="0.01" required value={formData.regularPrice} onChange={e => setFormData({...formData, regularPrice: e.target.value})} /></Col>
+                <Col md={9}><Form.Label className="fw-bold small text-primary">Reg Stripe ID</Form.Label><Form.Control required value={formData.regularStripeId} onChange={e => setFormData({...formData, regularStripeId: e.target.value})} /></Col>
+                <Col md={3}><Form.Label className="fw-bold small text-info">VIP Price ($)</Form.Label><Form.Control type="number" step="0.01" required value={formData.vipPrice} onChange={e => setFormData({...formData, vipPrice: e.target.value})} /></Col>
+                <Col md={9}><Form.Label className="fw-bold small text-info">VIP Stripe ID</Form.Label><Form.Control required value={formData.vipStripeId} onChange={e => setFormData({...formData, vipStripeId: e.target.value})} /></Col>
                 <Col md={12}><Form.Check type="switch" label="Is Event Sold Out?" checked={formData.isSoldOut} onChange={e => setFormData({...formData, isSoldOut: e.target.checked})} /></Col>
               </Row>
             </Modal.Body>
-            <Modal.Footer className="border-0"><Button variant="light" onClick={() => setShowModal(false)}>Cancel</Button><Button variant="dark" type="submit">{isEditMode ? 'Save Changes' : 'Publish Event'}</Button></Modal.Footer>
+            <Modal.Footer className="border-0"><Button variant="light" onClick={() => setShowModal(false)}>Cancel</Button><Button variant="dark" type="submit" className="px-4 fw-bold">{isEditMode ? 'Save Changes' : 'Publish Event'}</Button></Modal.Footer>
           </Form>
         </Modal>
-
       </Container>
     </div>
   );
