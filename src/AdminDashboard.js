@@ -1,20 +1,25 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Container, Row, Col, Card, Table, Badge, Button, Modal, Form, Spinner, InputGroup, Pagination } from 'react-bootstrap';
+import { Container, Row, Col, Card, Table, Badge, Button, Modal, Form, Spinner, InputGroup } from 'react-bootstrap';
 
 function AdminDashboard() {
   // --- State Management ---
-  const [stats, setStats] = useState({ totalRevenue: 0, totalTickets: 0 });
+  const [stats, setStats] = useState({ 
+    totalRevenue: 0, 
+    totalTickets: 0, 
+    recentPurchases: [], 
+    totalPages: 1, 
+    currentPage: 1 
+  });
   const [concerts, setConcerts] = useState([]);
-  const [buyers, setBuyers] = useState([]);
-  const [users, setUsers] = useState([]); // ✅ Added users state
+  const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   
   // 🔍 Search & Pagination States
   const [concertSearch, setConcertSearch] = useState("");
   const [buyerSearch, setBuyerSearch] = useState("");
-  const [userSearch, setUserSearch] = useState(""); // ✅ Added user search state
+  const [userSearch, setUserSearch] = useState("");
   const [concertPage, setConcertPage] = useState(1);
-  const [buyerPage, setBuyerPage] = useState(1);
+  const [buyerPage, setBuyerPage] = useState(1); // 🚀 This now controls Backend pagination
   const rowsPerPage = 5;
 
   const [showAddModal, setShowAddModal] = useState(false);
@@ -32,9 +37,9 @@ function AdminDashboard() {
   // --- 1. Fetch Logic ---
   const fetchData = useCallback(async () => {
     try {
-      // ✅ Fetching stats, concerts, and users in parallel
+      // ✅ Updated to pass buyerPage to the stats endpoint
       const [statsRes, concertRes, userRes] = await Promise.all([
-        fetch(`${baseUrl}/api/Admin/stats`),
+        fetch(`${baseUrl}/api/Admin/stats?page=${buyerPage}`),
         fetch(`${baseUrl}/api/Concerts`),
         fetch(`${baseUrl}/api/Admin/users`) 
       ]);
@@ -43,11 +48,7 @@ function AdminDashboard() {
       const concertData = await concertRes.json();
       const userData = await userRes.json();
 
-      setStats({
-        totalRevenue: statsData.totalRevenue || 0,
-        totalTickets: statsData.totalTickets || 0
-      });
-      setBuyers(statsData.recentPurchases || []);
+      setStats(statsData); // StatsData now includes totalPages and currentPage from backend
       setConcerts(concertData);
       setUsers(userData || []); 
       setLoading(false);
@@ -55,7 +56,7 @@ function AdminDashboard() {
       console.error("Dashboard Fetch Error:", err);
       setLoading(false);
     }
-  }, [baseUrl]);
+  }, [baseUrl, buyerPage]); // 🚀 Re-fetch when buyerPage changes
 
   useEffect(() => { 
     fetchData(); 
@@ -63,11 +64,11 @@ function AdminDashboard() {
 
   // --- 📥 Export Logic ---
   const exportToCSV = () => {
-    if (buyers.length === 0) return alert("No data to export");
+    if (!stats.recentPurchases || stats.recentPurchases.length === 0) return alert("No data to export");
     const headers = ["Customer Email", "Concert Title", "Ticket Type", "Quantity", "Purchase Date"];
     const csvContent = [
       headers.join(","),
-      ...buyers.map(b => [
+      ...stats.recentPurchases.map(b => [
         `"${b.userEmail}"`, `"${b.concertTitle}"`, `"${b.ticketType}"`, b.quantity, new Date(b.createdAt).toLocaleDateString()
       ].join(","))
     ].join("\n");
@@ -76,7 +77,7 @@ function AdminDashboard() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `EthioConcert_Sales_${new Date().toLocaleDateString()}.csv`;
+    link.download = `EthioConcert_Sales_Page${buyerPage}.csv`;
     link.click();
   };
 
@@ -103,6 +104,7 @@ function AdminDashboard() {
     if (res.ok) fetchData();
   };
 
+  // --- Concert Handlers (Add/Update/Delete) ---
   const handleAddConcert = async (e) => {
     e.preventDefault();
     try {
@@ -153,8 +155,8 @@ function AdminDashboard() {
     }
   };
 
-  // --- Filtering & Pagination Logic ---
-  const paginate = (items, page) => {
+  // --- Filtering Logic (Local for Concerts/Users) ---
+  const paginateLocal = (items, page) => {
     const startIndex = (page - 1) * rowsPerPage;
     return items.slice(startIndex, startIndex + rowsPerPage);
   };
@@ -164,18 +166,12 @@ function AdminDashboard() {
     c.venue.toLowerCase().includes(concertSearch.toLowerCase())
   );
 
-  const filteredBuyers = buyers.filter(b => 
-    b.userEmail.toLowerCase().includes(buyerSearch.toLowerCase()) ||
-    (b.concertTitle && b.concertTitle.toLowerCase().includes(buyerSearch.toLowerCase()))
-  );
-
   const filteredUsers = users.filter(u => 
     u.email.toLowerCase().includes(userSearch.toLowerCase()) || 
     u.name.toLowerCase().includes(userSearch.toLowerCase())
   );
 
-  const currentConcerts = paginate(filteredConcerts, concertPage);
-  const currentBuyers = paginate(filteredBuyers, buyerPage);
+  const currentConcerts = paginateLocal(filteredConcerts, concertPage);
 
   if (loading) return (
     <Container className="text-center py-5">
@@ -193,7 +189,7 @@ function AdminDashboard() {
             <p className="text-muted">Manage your concert catalog and sales</p>
           </div>
           <div className="d-flex gap-2">
-            <Button variant="outline-dark" className="fw-bold px-4 rounded-pill" onClick={exportToCSV}>Export Sales (.CSV)</Button>
+            <Button variant="outline-dark" className="fw-bold px-4 rounded-pill" onClick={exportToCSV}>Export This Page (.CSV)</Button>
             <Button variant="dark" className="fw-bold px-4 rounded-pill" onClick={() => setShowAddModal(true)}>+ Create Concert</Button>
           </div>
         </div>
@@ -281,14 +277,14 @@ function AdminDashboard() {
           </Table>
         </Card>
 
-        {/* 3. Transactions Table */}
+        {/* 3. Transactions Table (Backend Paginated) */}
         <div className="d-flex justify-content-between align-items-center mb-3">
-          <h4 className="fw-bold mb-0">Recent Transactions ({filteredBuyers.length})</h4>
+          <h4 className="fw-bold mb-0">Recent Transactions</h4>
           <InputGroup style={{ maxWidth: '300px' }}>
             <Form.Control 
               placeholder="Search by email..." 
               value={buyerSearch}
-              onChange={(e) => {setBuyerSearch(e.target.value); setBuyerPage(1);}}
+              onChange={(e) => setBuyerSearch(e.target.value)}
               className="rounded-pill px-3 shadow-sm"
             />
           </InputGroup>
@@ -299,7 +295,7 @@ function AdminDashboard() {
               <tr><th>Customer</th><th>Concert</th><th>Tier</th><th>Qty</th><th>Date</th></tr>
             </thead>
             <tbody>
-              {currentBuyers.map((b, idx) => (
+              {stats.recentPurchases?.filter(b => b.userEmail.toLowerCase().includes(buyerSearch.toLowerCase())).map((b, idx) => (
                 <tr key={idx}>
                   <td>{b.userEmail}</td>
                   <td className="small fw-bold">{b.concertTitle}</td>
@@ -310,10 +306,28 @@ function AdminDashboard() {
               ))}
             </tbody>
           </Table>
+          
+          {/* 🚀 New Backend Pagination Footer */}
+          <div className="d-flex justify-content-between align-items-center px-4 py-3 bg-light border-top">
+            <div className="text-muted small">
+              Page <strong>{stats.currentPage}</strong> of <strong>{stats.totalPages}</strong>
+            </div>
+            <div className="d-flex gap-2">
+              <Button 
+                variant="outline-secondary" size="sm" className="rounded-pill px-3"
+                disabled={buyerPage === 1}
+                onClick={() => setBuyerPage(prev => prev - 1)}
+              >Previous</Button>
+              <Button 
+                variant="outline-secondary" size="sm" className="rounded-pill px-3"
+                disabled={buyerPage === stats.totalPages}
+                onClick={() => setBuyerPage(prev => prev + 1)}
+              >Next</Button>
+            </div>
+          </div>
         </Card>
 
-        {/* Pagination and Modals remain at the bottom */}
-        {/* ... [Modals and Pagination Logic as provided in original] ... */}
+        {/* Modals for Add/Edit remain as you have them... */}
 
       </Container>
     </div>

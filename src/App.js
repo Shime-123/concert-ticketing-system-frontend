@@ -53,35 +53,44 @@ function Home() {
     setShowModal(true);
   };
 
-  const handleBuy = async () => {
-    if (!isAuthenticated) {
-      setShowModal(false);
-      setShowAuthModal(true);
+const handleBuy = async () => {
+  if (!isAuthenticated) {
+    setShowModal(false);
+    setShowAuthModal(true);
+    return;
+  }
+
+  setLoading(true);
+  try {
+    const res = await fetch(`${process.env.REACT_APP_API_URL}/api/Stripe/create-checkout`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        priceId: selectedTicket.id,
+        quantity: quantity,
+        ticketType: selectedTicket.name,
+        concertId: activeEvent.concertId,
+        concertTitle: activeEvent.concertTitle,
+        venue: activeEvent.venue,
+        userEmail: user.email // Ensure this is definitely user.email
+      }),
+    });
+
+    // 🚀 NEW: Check for the 403 Forbidden status (Suspended)
+    if (res.status === 403) {
+      const data = await res.json();
+      alert(data.message || "Your account is suspended. Purchase denied.");
+      setLoading(false);
       return;
     }
 
-    setLoading(true);
-    try {
-      const res = await fetch(`${process.env.REACT_APP_API_URL}/api/Stripe/create-checkout`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          priceId: selectedTicket.id,
-          quantity: quantity,
-          ticketType: selectedTicket.name,
-          concertId: activeEvent.concertId,
-          concertTitle: activeEvent.concertTitle,
-          venue: activeEvent.venue,
-          userEmail: user.email 
-        }),
-      });
-      const data = await res.json();
-      if (data.url) window.location.href = data.url;
-    } catch (err) {
-      alert("Error connecting to server.");
-    }
-    setLoading(false);
-  };
+    const data = await res.json();
+    if (data.url) window.location.href = data.url;
+  } catch (err) {
+    alert("Error connecting to server.");
+  }
+  setLoading(false);
+};
 
   const getAvailableTickets = () => {
     if (!activeEvent) return [];
@@ -219,9 +228,18 @@ function Home() {
               <div className="text-secondary small">Total Payment</div>
               <div className="fs-3 fw-bold text-warning">${(selectedTicket?.price || 0) * quantity}</div>
             </div>
-            <Button variant="warning" size="lg" className="fw-bold px-4" onClick={handleBuy} disabled={loading || !selectedTicket}>
-              {loading ? "Loading..." : isAuthenticated ? "BUY NOW" : "LOGIN TO PURCHASE"}
-            </Button>
+<Button 
+  variant="warning" 
+  size="lg" 
+  className="fw-bold px-4" 
+  onClick={handleBuy} 
+  // 🚀 Disable button if loading, no ticket, OR user is suspended
+  disabled={loading || !selectedTicket || (user && user.isSuspended)}
+>
+  {loading ? "Loading..." : 
+   (user && user.isSuspended) ? "ACCOUNT SUSPENDED" : 
+   isAuthenticated ? "BUY NOW" : "LOGIN TO PURCHASE"}
+</Button>
           </div>
         </Modal.Body>
       </Modal>
