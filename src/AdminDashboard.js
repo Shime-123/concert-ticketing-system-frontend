@@ -175,7 +175,7 @@ function AdminDashboard() {
           </Table>
         </Card>
 
-        {/* USER CONTROL */}
+        {/* USER MANAGEMENT SECTION */}
         <h4 className="fw-bold mb-3">User Control</h4>
         <Card className="shadow-sm border-0 mb-5 rounded-4 overflow-hidden">
           <Table responsive hover className="mb-0 align-middle">
@@ -184,7 +184,11 @@ function AdminDashboard() {
               {users.map(u => (
                 <tr key={u.email}>
                   <td>{u.name}</td><td>{u.email}</td>
-                  <td>{u.role}</td>
+                  <td>
+                    <Form.Select size="sm" value={u.role} onChange={(e) => handleRoleUpdate(u.email, e.target.value)}>
+                      <option value="Customer">Customer</option><option value="Admin">Admin</option>
+                    </Form.Select>
+                  </td>
                   <td><Badge bg={u.isSuspended ? 'danger' : 'success'}>{u.isSuspended ? 'Suspended' : 'Active'}</Badge></td>
                   <td><Button size="sm" variant="outline-dark" onClick={() => handleToggleSuspension(u.email)}>Toggle</Button></td>
                 </tr>
