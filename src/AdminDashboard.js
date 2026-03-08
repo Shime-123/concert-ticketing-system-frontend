@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Container, Row, Col, Card, Table, Badge, Button, Modal, Form, Spinner, InputGroup } from 'react-bootstrap';
+import { Container, Row, Col, Card, Table, Badge, Button, Modal, Form, Spinner, InputGroup, Pagination } from 'react-bootstrap';
 
 function AdminDashboard() {
   // --- State Management ---
@@ -14,7 +14,9 @@ function AdminDashboard() {
   const [concertSearch, setConcertSearch] = useState("");
   const [buyerSearch, setBuyerSearch] = useState("");
   const [userSearch, setUserSearch] = useState("");
+  
   const [concertPage, setConcertPage] = useState(1);
+  const [userPage, setUserPage] = useState(1);
   const [buyerPage, setBuyerPage] = useState(1); 
   const rowsPerPage = 5;
 
@@ -48,7 +50,7 @@ function AdminDashboard() {
       setUsers(userData || []); 
       setLoading(false);
     } catch (err) {
-      console.error("Dashboard Fetch Error:", err);
+      console.error("Dashboard Error:", err);
       setLoading(false);
     }
   }, [baseUrl, buyerPage]);
@@ -70,7 +72,7 @@ function AdminDashboard() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `EthioConcert_Sales_Page${buyerPage}.csv`;
+    link.download = `Sales_Export_Page_${buyerPage}.csv`;
     link.click();
   };
 
@@ -78,153 +80,89 @@ function AdminDashboard() {
   const handleToggleSuspension = async (email) => {
     const res = await fetch(`${baseUrl}/api/Admin/toggle-suspension/${email}`, { method: 'PUT' });
     if (res.ok) fetchData();
-    else alert("Failed to update status");
   };
 
   const handleRoleChange = async (email, currentRole) => {
     const newRole = currentRole === "Admin" ? "Customer" : "Admin";
-    const res = await fetch(`${baseUrl}/api/Admin/update-role`, {
+    await fetch(`${baseUrl}/api/Admin/update-role`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, role: newRole })
     });
-    if (res.ok) fetchData();
-  };
-
-  const handleDeleteUser = async (email) => {
-    if (!window.confirm(`Delete user ${email}?`)) return;
-    const res = await fetch(`${baseUrl}/api/Admin/delete-user/${email}`, { method: 'DELETE' });
-    if (res.ok) fetchData();
-  };
-
-  const handleAddConcert = async (e) => {
-    e.preventDefault();
-    try {
-      const res = await fetch(`${baseUrl}/api/Admin/add-concert`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...newConcert,
-          regularPrice: parseFloat(newConcert.regularPrice),
-          vipPrice: parseFloat(newConcert.vipPrice),
-          isSoldOut: Boolean(newConcert.isSoldOut)
-        })
-      });
-      if (res.ok) {
-        setShowAddModal(false);
-        setNewConcert({ concertTitle: '', venue: '', date: '', imageUrl: '', regularPrice: '', regularStripeId: '', vipPrice: '', vipStripeId: '', isSoldOut: false });
-        fetchData(); 
-      }
-    } catch (err) { alert("Error adding concert"); }
+    fetchData();
   };
 
   const handleUpdateConcert = async (e) => {
     e.preventDefault();
-    try {
-      const res = await fetch(`${baseUrl}/api/Admin/update-concert/${editingConcert.concertId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...editingConcert,
-          regularPrice: parseFloat(editingConcert.regularPrice),
-          vipPrice: parseFloat(editingConcert.vipPrice),
-          isSoldOut: Boolean(editingConcert.isSoldOut)
-        })
-      });
-      if (res.ok) {
-        setShowEditModal(false);
-        fetchData();
-      }
-    } catch (err) { alert("Error updating concert"); }
+    const res = await fetch(`${baseUrl}/api/Admin/update-concert/${editingConcert.concertId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...editingConcert,
+        regularPrice: parseFloat(editingConcert.regularPrice),
+        vipPrice: parseFloat(editingConcert.vipPrice)
+      })
+    });
+    if (res.ok) { setShowEditModal(false); fetchData(); }
   };
 
-  const handleDeleteConcert = async (id) => {
-    if (window.confirm("Delete this concert? Sales history remains in DB.")) {
-      try {
-        const res = await fetch(`${baseUrl}/api/Admin/delete-concert/${id}`, { method: 'DELETE' });
-        if (res.ok) fetchData();
-      } catch (err) { alert("Error deleting concert"); }
-    }
-  };
-
-  // --- Filtering Logic ---
-  const paginateLocal = (items, page) => {
+  // --- 🔍 ADVANCED FILTERING LOGIC ---
+  const paginate = (items, page) => {
     const startIndex = (page - 1) * rowsPerPage;
     return items.slice(startIndex, startIndex + rowsPerPage);
   };
 
+  // Filter Concerts by Title or Venue
   const filteredConcerts = concerts.filter(c => 
     c.concertTitle.toLowerCase().includes(concertSearch.toLowerCase()) ||
     c.venue.toLowerCase().includes(concertSearch.toLowerCase())
   );
 
+  // Filter Users by ALL fields (Name, Email, Role)
   const filteredUsers = users.filter(u => 
-    u.email.toLowerCase().includes(userSearch.toLowerCase()) || 
-    u.name.toLowerCase().includes(userSearch.toLowerCase())
+    u.name.toLowerCase().includes(userSearch.toLowerCase()) ||
+    u.email.toLowerCase().includes(userSearch.toLowerCase()) ||
+    u.role.toLowerCase().includes(userSearch.toLowerCase())
   );
 
-  const currentConcerts = paginateLocal(filteredConcerts, concertPage);
-
-  if (loading) return (
-    <Container className="text-center py-5">
-      <Spinner animation="border" variant="warning" />
-    </Container>
+  // Filter Transactions (Recent Purchases)
+  const filteredBuyers = (stats.recentPurchases || []).filter(b =>
+    b.userEmail.toLowerCase().includes(buyerSearch.toLowerCase()) ||
+    b.concertTitle.toLowerCase().includes(buyerSearch.toLowerCase()) ||
+    b.ticketType.toLowerCase().includes(buyerSearch.toLowerCase())
   );
+
+  if (loading) return <Container className="text-center py-5"><Spinner animation="border" variant="warning" /></Container>;
 
   return (
     <div className="bg-light min-vh-100 py-5 text-dark">
       <Container>
-        {/* Header Section */}
+        {/* Header */}
         <div className="d-flex justify-content-between align-items-center mb-5">
-          <div>
-            <h1 className="fw-bold">Admin Panel</h1>
-            <p className="text-muted">Manage your concert catalog and sales</p>
-          </div>
+          <div><h1 className="fw-bold">Admin Panel</h1><p className="text-muted">Global Management Console</p></div>
           <div className="d-flex gap-2">
-            <Button variant="outline-dark" className="fw-bold px-4 rounded-pill" onClick={exportToCSV}>Export This Page (.CSV)</Button>
-            <Button variant="dark" className="fw-bold px-4 rounded-pill" onClick={() => setShowAddModal(true)}>+ Create Concert</Button>
+            <Button variant="outline-dark" className="rounded-pill" onClick={exportToCSV}>Export CSV</Button>
+            <Button variant="dark" className="rounded-pill" onClick={() => setShowAddModal(true)}>+ New Concert</Button>
           </div>
         </div>
 
-        {/* Stats Row */}
-        <Row className="mb-5 g-4 text-white">
-          <Col md={6}><Card className="shadow-sm border-0 bg-primary p-4 rounded-4">
-            <h6 className="text-uppercase opacity-75 small fw-bold">Gross Revenue</h6>
-            <h2 className="fw-bold mb-0">${stats.totalRevenue.toLocaleString()}</h2>
-          </Card></Col>
-          <Col md={6}><Card className="shadow-sm border-0 bg-success p-4 rounded-4">
-            <h6 className="text-uppercase opacity-75 small fw-bold">Tickets Sold</h6>
-            <h2 className="fw-bold mb-0">{stats.totalTickets}</h2>
-          </Card></Col>
-        </Row>
-
-        {/* 1. Live Events Table */}
+        {/* 1. Live Events */}
         <div className="d-flex justify-content-between align-items-center mb-3">
-          <h4 className="fw-bold mb-0">Live Events ({filteredConcerts.length})</h4>
-          <InputGroup style={{ maxWidth: '300px' }}>
-            <Form.Control 
-              placeholder="Search events..." 
-              value={concertSearch}
-              onChange={(e) => {setConcertSearch(e.target.value); setConcertPage(1);}}
-              className="rounded-pill px-3 shadow-sm"
-            />
-          </InputGroup>
+          <h4 className="fw-bold">Live Events</h4>
+          <Form.Control placeholder="Search title or venue..." className="w-25 rounded-pill" onChange={e => {setConcertSearch(e.target.value); setConcertPage(1);}} />
         </div>
-        <Card className="shadow-sm border-0 mb-5 rounded-4 overflow-hidden">
-          <Table responsive hover className="mb-0 align-middle">
-            <thead className="table-dark">
-              <tr><th>Status</th><th>Title</th><th>Venue</th><th>Date</th><th className="text-end">Actions</th></tr>
-            </thead>
+        <Card className="shadow-sm border-0 mb-4 rounded-4 overflow-hidden">
+          <Table responsive hover className="mb-0">
+            <thead className="table-dark"><tr><th>Status</th><th>Title</th><th>Venue</th><th>Date</th><th className="text-end">Actions</th></tr></thead>
             <tbody>
-              {currentConcerts.map(c => (
+              {paginate(filteredConcerts, concertPage).map(c => (
                 <tr key={c.concertId}>
-                  <td>{c.isSoldOut ? <Badge bg="danger">SOLD OUT</Badge> : <Badge bg="success">LIVE</Badge>}</td>
+                  <td><Badge bg={c.isSoldOut ? "danger" : "success"}>{c.isSoldOut ? "SOLD OUT" : "LIVE"}</Badge></td>
                   <td className="fw-bold">{c.concertTitle}</td>
                   <td>{c.venue}</td>
                   <td>{new Date(c.date).toLocaleDateString()}</td>
                   <td className="text-end">
-                    <Button variant="outline-primary" size="sm" className="me-2" onClick={() => { setEditingConcert(c); setShowEditModal(true); }}>Edit</Button>
-                    <Button variant="outline-danger" size="sm" onClick={() => handleDeleteConcert(c.concertId)}>Delete</Button>
+                    <Button variant="outline-primary" size="sm" onClick={() => { setEditingConcert(c); setShowEditModal(true); }}>Edit</Button>
                   </td>
                 </tr>
               ))}
@@ -232,155 +170,83 @@ function AdminDashboard() {
           </Table>
         </Card>
 
-        {/* 2. User Management Table */}
+        {/* 2. User Management (Global Search) */}
         <div className="d-flex justify-content-between align-items-center mb-3 mt-5">
-          <h4 className="fw-bold mb-0">User Management ({filteredUsers.length})</h4>
-          <InputGroup style={{ maxWidth: '300px' }}>
-            <Form.Control 
-              placeholder="Search users..." 
-              value={userSearch}
-              onChange={(e) => setUserSearch(e.target.value)}
-              className="rounded-pill px-3 shadow-sm"
-            />
-          </InputGroup>
-        </div>
-        <Card className="shadow-sm border-0 rounded-4 overflow-hidden mb-5">
-          <Table responsive hover className="mb-0 align-middle">
-            <thead className="table-warning">
-              <tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th className="text-end">Actions</th></tr>
-            </thead>
-            <tbody>
-              {filteredUsers.map((u) => (
-                <tr key={u.email} style={{ opacity: u.isSuspended ? 0.6 : 1 }}>
-                  <td>{u.name}</td>
-                  <td>{u.email}</td>
-                  <td><Badge bg={u.role === "Admin" ? "danger" : "secondary"}>{u.role}</Badge></td>
-                  <td>{u.isSuspended ? <Badge bg="danger">SUSPENDED</Badge> : <Badge bg="success">ACTIVE</Badge>}</td>
-                  <td className="text-end">
-                    <Button variant="outline-dark" size="sm" className="me-2" onClick={() => handleRoleChange(u.email, u.role)}>Role</Button>
-                    <Button variant={u.isSuspended ? "success" : "warning"} size="sm" className="me-2" onClick={() => handleToggleSuspension(u.email)}>
-                      {u.isSuspended ? "Unsuspend" : "Suspend"}
-                    </Button>
-                    <Button variant="outline-danger" size="sm" onClick={() => handleDeleteUser(u.email)}>Delete</Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
-        </Card>
-
-        {/* 3. Transactions Table */}
-        <div className="d-flex justify-content-between align-items-center mb-3">
-          <h4 className="fw-bold mb-0">Recent Transactions</h4>
-          <InputGroup style={{ maxWidth: '300px' }}>
-            <Form.Control 
-              placeholder="Search by email..." 
-              value={buyerSearch}
-              onChange={(e) => setBuyerSearch(e.target.value)}
-              className="rounded-pill px-3 shadow-sm"
-            />
-          </InputGroup>
+          <h4 className="fw-bold">User Management</h4>
+          <Form.Control placeholder="Search name, email, or role..." className="w-25 rounded-pill border-primary" onChange={e => {setUserSearch(e.target.value); setUserPage(1);}} />
         </div>
         <Card className="shadow-sm border-0 rounded-4 overflow-hidden mb-4">
-          <Table responsive className="mb-0 align-middle">
-            <thead className="table-light">
-              <tr><th>Customer</th><th>Concert</th><th>Tier</th><th>Qty</th><th>Date</th></tr>
-            </thead>
+          <Table responsive hover className="mb-0">
+            <thead className="table-warning"><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th className="text-end">Actions</th></tr></thead>
             <tbody>
-              {stats.recentPurchases?.filter(b => b.userEmail.toLowerCase().includes(buyerSearch.toLowerCase())).map((b, idx) => (
-                <tr key={idx}>
-                  <td>{b.userEmail}</td>
-                  <td className="small fw-bold">{b.concertTitle}</td>
-                  <td><Badge bg="info" text="dark">{b.ticketType}</Badge></td>
-                  <td>{b.quantity}</td>
-                  <td>{new Date(b.createdAt).toLocaleDateString()}</td>
+              {paginate(filteredUsers, userPage).map(u => (
+                <tr key={u.email} style={{ opacity: u.isSuspended ? 0.5 : 1 }}>
+                  <td>{u.name}</td><td>{u.email}</td>
+                  <td><Badge bg={u.role === "Admin" ? "danger" : "secondary"}>{u.role}</Badge></td>
+                  <td><Badge bg={u.isSuspended ? "danger" : "success"}>{u.isSuspended ? "SUSPENDED" : "ACTIVE"}</Badge></td>
+                  <td className="text-end">
+                    <Button variant="outline-dark" size="sm" className="me-2" onClick={() => handleRoleChange(u.email, u.role)}>Role</Button>
+                    <Button variant={u.isSuspended ? "success" : "warning"} size="sm" onClick={() => handleToggleSuspension(u.email)}>{u.isSuspended ? "Unsuspend" : "Suspend"}</Button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </Table>
-          <div className="d-flex justify-content-between align-items-center px-4 py-3 bg-light border-top">
-            <div className="text-muted small">Page <strong>{stats.currentPage}</strong> of <strong>{stats.totalPages}</strong></div>
+        </Card>
+        <Pagination className="justify-content-center">
+            {[...Array(Math.ceil(filteredUsers.length / rowsPerPage))].map((_, i) => (
+                <Pagination.Item key={i+1} active={i+1 === userPage} onClick={() => setUserPage(i+1)}>{i+1}</Pagination.Item>
+            ))}
+        </Pagination>
+
+        {/* 3. Recent Transactions (Full Search) */}
+        <div className="d-flex justify-content-between align-items-center mb-3 mt-5">
+          <h4 className="fw-bold">Recent Transactions</h4>
+          <Form.Control placeholder="Search email, concert, or tier..." className="w-25 rounded-pill" onChange={e => setBuyerSearch(e.target.value)} />
+        </div>
+        <Card className="shadow-sm border-0 rounded-4 overflow-hidden mb-4">
+          <Table responsive className="mb-0">
+            <thead className="table-light"><tr><th>Customer</th><th>Concert</th><th>Tier</th><th>Qty</th><th>Date</th></tr></thead>
+            <tbody>
+              {filteredBuyers.map((b, idx) => (
+                <tr key={idx}>
+                  <td>{b.userEmail}</td><td className="fw-bold">{b.concertTitle}</td>
+                  <td><Badge bg="info" text="dark">{b.ticketType}</Badge></td>
+                  <td>{b.quantity}</td><td>{new Date(b.createdAt).toLocaleDateString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+          <div className="d-flex justify-content-between px-4 py-3 bg-light border-top">
+            <span className="small text-muted">Page {stats.currentPage} of {stats.totalPages}</span>
             <div className="d-flex gap-2">
-              <Button variant="outline-secondary" size="sm" className="rounded-pill px-3" disabled={buyerPage === 1} onClick={() => setBuyerPage(prev => prev - 1)}>Previous</Button>
-              <Button variant="outline-secondary" size="sm" className="rounded-pill px-3" disabled={buyerPage === stats.totalPages} onClick={() => setBuyerPage(prev => prev + 1)}>Next</Button>
+              <Button size="sm" variant="outline-secondary" disabled={buyerPage === 1} onClick={() => setBuyerPage(p => p - 1)}>Prev</Button>
+              <Button size="sm" variant="outline-secondary" disabled={buyerPage === stats.totalPages} onClick={() => setBuyerPage(p => p + 1)}>Next</Button>
             </div>
           </div>
         </Card>
 
-        {/* --- Create Concert Modal --- */}
-        <Modal show={showAddModal} onHide={() => setShowAddModal(false)} size="lg" centered>
-          <Modal.Header closeButton className="border-0"><Modal.Title className="fw-bold">Create New Concert</Modal.Title></Modal.Header>
-          <Form onSubmit={handleAddConcert}>
-            <Modal.Body className="bg-light px-4">
-              <Row>
-                <Col md={6} className="mb-3">
-                  <Form.Label className="small fw-bold text-uppercase">Concert Title</Form.Label>
-                  <Form.Control required type="text" placeholder="e.g. Summer Jam 2024" value={newConcert.concertTitle} onChange={(e) => setNewConcert({...newConcert, concertTitle: e.target.value})} />
-                </Col>
-                <Col md={6} className="mb-3">
-                  <Form.Label className="small fw-bold text-uppercase">Venue</Form.Label>
-                  <Form.Control required type="text" placeholder="e.g. Millennium Hall" value={newConcert.venue} onChange={(e) => setNewConcert({...newConcert, venue: e.target.value})} />
-                </Col>
-                <Col md={6} className="mb-3">
-                  <Form.Label className="small fw-bold text-uppercase">Date & Time</Form.Label>
-                  <Form.Control required type="datetime-local" value={newConcert.date} onChange={(e) => setNewConcert({...newConcert, date: e.target.value})} />
-                </Col>
-                <Col md={6} className="mb-3">
-                  <Form.Label className="small fw-bold text-uppercase">Image URL</Form.Label>
-                  <Form.Control required type="text" placeholder="https://image-link.com" value={newConcert.imageUrl} onChange={(e) => setNewConcert({...newConcert, imageUrl: e.target.value})} />
-                </Col>
-              </Row>
-              <hr />
-              <Row>
-                <Col md={3} className="mb-3">
-                  <Form.Label className="small fw-bold text-uppercase">Regular Price</Form.Label>
-                  <Form.Control required type="number" placeholder="0.00" value={newConcert.regularPrice} onChange={(e) => setNewConcert({...newConcert, regularPrice: e.target.value})} />
-                </Col>
-                <Col md={3} className="mb-3">
-                  <Form.Label className="small fw-bold text-uppercase">Regular Stripe ID</Form.Label>
-                  <Form.Control required type="text" placeholder="price_..." value={newConcert.regularStripeId} onChange={(e) => setNewConcert({...newConcert, regularStripeId: e.target.value})} />
-                </Col>
-                <Col md={3} className="mb-3">
-                  <Form.Label className="small fw-bold text-uppercase">VIP Price</Form.Label>
-                  <Form.Control required type="number" placeholder="0.00" value={newConcert.vipPrice} onChange={(e) => setNewConcert({...newConcert, vipPrice: e.target.value})} />
-                </Col>
-                <Col md={3} className="mb-3">
-                  <Form.Label className="small fw-bold text-uppercase">VIP Stripe ID</Form.Label>
-                  <Form.Control required type="text" placeholder="price_..." value={newConcert.vipStripeId} onChange={(e) => setNewConcert({...newConcert, vipStripeId: e.target.value})} />
-                </Col>
-              </Row>
-            </Modal.Body>
-            <Modal.Footer className="border-0"><Button variant="light" onClick={() => setShowAddModal(false)}>Cancel</Button><Button variant="dark" type="submit">Create Concert</Button></Modal.Footer>
-          </Form>
-        </Modal>
-
-        {/* --- Edit Concert Modal --- */}
+        {/* Edit Modal (Detailed) */}
         <Modal show={showEditModal} onHide={() => setShowEditModal(false)} size="lg" centered>
-          <Modal.Header closeButton className="border-0"><Modal.Title className="fw-bold">Edit Concert</Modal.Title></Modal.Header>
-          <Form onSubmit={handleUpdateConcert}>
-            <Modal.Body className="bg-light px-4">
-              {editingConcert && (
-                <>
-                  <Row>
-                    <Col md={6} className="mb-3">
-                      <Form.Label className="small fw-bold text-uppercase">Concert Title</Form.Label>
-                      <Form.Control required type="text" value={editingConcert.concertTitle} onChange={(e) => setEditingConcert({...editingConcert, concertTitle: e.target.value})} />
-                    </Col>
-                    <Col md={6} className="mb-3">
-                      <Form.Label className="small fw-bold text-uppercase">Venue</Form.Label>
-                      <Form.Control required type="text" value={editingConcert.venue} onChange={(e) => setEditingConcert({...editingConcert, venue: e.target.value})} />
-                    </Col>
-                  </Row>
-                  <Row>
-                    <Col md={6} className="mb-3">
-                      <Form.Check type="switch" label="Is Sold Out?" checked={editingConcert.isSoldOut} onChange={(e) => setEditingConcert({...editingConcert, isSoldOut: e.target.checked})} />
-                    </Col>
-                  </Row>
-                </>
-              )}
-            </Modal.Body>
-            <Modal.Footer className="border-0"><Button variant="light" onClick={() => setShowEditModal(false)}>Cancel</Button><Button variant="primary" type="submit">Update Concert</Button></Modal.Footer>
-          </Form>
+          {editingConcert && (
+            <Form onSubmit={handleUpdateConcert}>
+              <Modal.Header closeButton><Modal.Title className="fw-bold">Edit: {editingConcert.concertTitle}</Modal.Title></Modal.Header>
+              <Modal.Body className="p-4 bg-light">
+                <Row className="g-3">
+                  <Col md={6}><Form.Label className="small fw-bold">Venue</Form.Label><Form.Control value={editingConcert.venue} onChange={e => setEditingConcert({...editingConcert, venue: e.target.value})} /></Col>
+                  <Col md={6}><Form.Label className="small fw-bold">Date</Form.Label><Form.Control type="datetime-local" value={editingConcert.date?.substring(0, 16)} onChange={e => setEditingConcert({...editingConcert, date: e.target.value})} /></Col>
+                  <Col md={3}><Form.Label className="text-primary fw-bold">Reg Price</Form.Label><Form.Control type="number" value={editingConcert.regularPrice} onChange={e => setEditingConcert({...editingConcert, regularPrice: e.target.value})} /></Col>
+                  <Col md={9}><Form.Label className="text-primary fw-bold">Reg Stripe ID</Form.Label><Form.Control value={editingConcert.regularStripeId} onChange={e => setEditingConcert({...editingConcert, regularStripeId: e.target.value})} /></Col>
+                  <Col md={3}><Form.Label className="text-info fw-bold">VIP Price</Form.Label><Form.Control type="number" value={editingConcert.vipPrice} onChange={e => setEditingConcert({...editingConcert, vipPrice: e.target.value})} /></Col>
+                  <Col md={9}><Form.Label className="text-info fw-bold">VIP Stripe ID</Form.Label><Form.Control value={editingConcert.vipStripeId} onChange={e => setEditingConcert({...editingConcert, vipStripeId: e.target.value})} /></Col>
+                </Row>
+                <div className="mt-4 p-3 border rounded-3 bg-white">
+                  <Form.Check type="switch" label={editingConcert.isSoldOut ? "EVENT IS SOLD OUT" : "EVENT IS ACTIVE"} checked={editingConcert.isSoldOut} onChange={e => setEditingConcert({...editingConcert, isSoldOut: e.target.checked})} />
+                </div>
+              </Modal.Body>
+              <Modal.Footer><Button variant="primary" type="submit" className="w-100 fw-bold">Save All Changes</Button></Modal.Footer>
+            </Form>
+          )}
         </Modal>
       </Container>
     </div>
