@@ -196,7 +196,7 @@ function AdminDashboard() {
                     </Form.Select>
                   </td>
                   <td><Badge bg={u.isSuspended ? 'danger' : 'success'}>{u.isSuspended ? 'Suspended' : 'Active'}</Badge></td>
-                  <td><Button size="sm" variant="outline-dark" onClick={() => handleToggleSuspension(u.email)}>Toggle</Button></td>
+                  <td><Button size="sm" variant="outline-dark" onClick={() => handleToggleSuspension(u.email)}>Suspend</Button></td>
                 </tr>
               ))}
             </tbody>
