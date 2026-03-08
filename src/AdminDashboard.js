@@ -70,12 +70,17 @@ const [newConcert, setNewConcert] = useState({
 const handleAddConcert = async (e) => {
   e.preventDefault();
   
-  // Create a clean object to send
   const concertData = {
-    ...newConcert,
-    regularPrice: parseFloat(newConcert.regularPrice) || 0, // Convert string to decimal
-    vipPrice: parseFloat(newConcert.vipPrice) || 0,        // Convert string to decimal
-    date: new Date(newConcert.date).toISOString()          // Ensure UTC format for your DB Fix
+    // We map these explicitly to ensure the Backend receives exactly what it needs
+    ConcertTitle: newConcert.concertTitle,
+    Venue: newConcert.venue,
+    Date: new Date(newConcert.date).toISOString(),
+    ImageUrl: newConcert.imageUrl,
+    RegularPrice: parseFloat(newConcert.regularPrice) || 0,
+    RegularStripeId: newConcert.regularStripeId,
+    VipPrice: parseFloat(newConcert.vipPrice) || 0,
+    VipStripeId: newConcert.vipStripeId,
+    IsSoldOut: newConcert.isSoldOut
   };
 
   const res = await fetch(`${baseUrl}/api/Admin/add-concert`, {
@@ -86,11 +91,11 @@ const handleAddConcert = async (e) => {
   
   if (res.ok) { 
     setShowAddModal(false); 
-    fetchData(); 
+    fetchData(); // This refreshes the table so you see the new concert immediately
   } else {
-    const errorData = await res.json();
-    console.error("Add Failed:", errorData);
-    alert("Check Console: " + JSON.stringify(errorData.errors));
+    const errorText = await res.text();
+    console.error("Server Error:", errorText);
+    alert("Save failed. Check console for details.");
   }
 };
 
@@ -99,10 +104,16 @@ const handleUpdateConcert = async (e) => {
   e.preventDefault();
 
   const concertData = {
-    ...editingConcert,
-    regularPrice: parseFloat(editingConcert.regularPrice),
-    vipPrice: parseFloat(editingConcert.vipPrice),
-    date: new Date(editingConcert.date).toISOString()
+    ConcertId: editingConcert.concertId, // CRITICAL: Must include the ID for Update
+    ConcertTitle: editingConcert.concertTitle,
+    Venue: editingConcert.venue,
+    Date: new Date(editingConcert.date).toISOString(),
+    ImageUrl: editingConcert.imageUrl,
+    RegularPrice: parseFloat(editingConcert.regularPrice) || 0,
+    RegularStripeId: editingConcert.regularStripeId,
+    VipPrice: parseFloat(editingConcert.vipPrice) || 0,
+    VipStripeId: editingConcert.vipStripeId,
+    IsSoldOut: editingConcert.isSoldOut
   };
 
   const res = await fetch(`${baseUrl}/api/Admin/update-concert/${editingConcert.concertId}`, {
@@ -114,6 +125,10 @@ const handleUpdateConcert = async (e) => {
   if (res.ok) { 
     setShowEditModal(false); 
     fetchData(); 
+  } else {
+    const errorText = await res.text();
+    console.error("Update Failed:", errorText);
+    alert("Update failed. Check console.");
   }
 };
 
@@ -177,13 +192,20 @@ const handleUpdateConcert = async (e) => {
     <Button 
       variant="dark" 
       className="rounded-pill px-4 shadow-sm" 
-      onClick={() => {
-        setNewConcert({
-          concertTitle: '', venue: '', date: '', imageUrl: '',
-          regularPrice: '', regularStripeId: '', vipPrice: '', vipStripeId: '', isSoldOut: false
-        });
-        setShowAddModal(true);
-      }}
+onClick={() => {
+  setNewConcert({
+    concertTitle: '', 
+    venue: '', 
+    date: new Date().toISOString().slice(0, 16), 
+    imageUrl: '',
+    regularPrice: 0, // MUST BE 0, NOT ''
+    regularStripeId: '', 
+    vipPrice: 0,     // MUST BE 0, NOT ''
+    vipStripeId: '', 
+    isSoldOut: false
+  });
+  setShowAddModal(true);
+}}
     >
       + Create Concert
     </Button>
