@@ -231,9 +231,59 @@ function AdminDashboard() {
           </Pagination>
         </Card>
 
-        {/* MODAL (Existing logic remains unchanged) */}
+        {/* UNIFIED MODAL FOR ADD AND EDIT */}
         <Modal show={showModal} onHide={() => setShowModal(false)} size="lg" centered>
-          {/* ... Modal Content as before ... */}
+          <Form onSubmit={handleSubmit}>
+            <Modal.Header closeButton className="border-0">
+              <Modal.Title className="fw-bold">{isEditMode ? `Edit: ${formData.concertTitle}` : 'Create New Concert'}</Modal.Title>
+            </Modal.Header>
+            <Modal.Body className="p-4">
+              <Row className="g-3">
+                <Col md={6}>
+                  <Form.Label className="fw-bold small">Concert Title</Form.Label>
+                  <Form.Control required value={formData.concertTitle} onChange={e => setFormData({...formData, concertTitle: e.target.value})} />
+                </Col>
+                <Col md={6}>
+                  <Form.Label className="fw-bold small">Venue</Form.Label>
+                  <Form.Control required value={formData.venue} onChange={e => setFormData({...formData, venue: e.target.value})} />
+                </Col>
+                <Col md={6}>
+                  <Form.Label className="fw-bold small">Date & Time</Form.Label>
+                  <Form.Control type="datetime-local" required value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} />
+                </Col>
+                <Col md={6}>
+                  <Form.Label className="fw-bold small">Image URL</Form.Label>
+                  <Form.Control required value={formData.imageUrl} onChange={e => setFormData({...formData, imageUrl: e.target.value})} />
+                </Col>
+                <Col md={3}>
+                  <Form.Label className="fw-bold small text-primary">Reg Price ($)</Form.Label>
+                  <Form.Control type="number" step="0.01" required value={formData.regularPrice} onChange={e => setFormData({...formData, regularPrice: e.target.value})} />
+                </Col>
+                <Col md={9}>
+                  <Form.Label className="fw-bold small text-primary">Reg Stripe ID</Form.Label>
+                  <Form.Control required value={formData.regularStripeId} onChange={e => setFormData({...formData, regularStripeId: e.target.value})} />
+                </Col>
+                <Col md={3}>
+                  <Form.Label className="fw-bold small text-info">VIP Price ($)</Form.Label>
+                  <Form.Control type="number" step="0.01" required value={formData.vipPrice} onChange={e => setFormData({...formData, vipPrice: e.target.value})} />
+                </Col>
+                <Col md={9}>
+                  <Form.Label className="fw-bold small text-info">VIP Stripe ID</Form.Label>
+                  <Form.Control required value={formData.vipStripeId} onChange={e => setFormData({...formData, vipStripeId: e.target.value})} />
+                </Col>
+                <Col md={12}>
+                  <Form.Check 
+                    type="switch" label="Is Event Sold Out?" checked={formData.isSoldOut} 
+                    onChange={e => setFormData({...formData, isSoldOut: e.target.checked})} 
+                  />
+                </Col>
+              </Row>
+            </Modal.Body>
+            <Modal.Footer className="border-0">
+              <Button variant="light" onClick={() => setShowModal(false)}>Cancel</Button>
+              <Button variant="dark" type="submit" className="px-4 fw-bold">{isEditMode ? 'Save Changes' : 'Publish Event'}</Button>
+            </Modal.Footer>
+          </Form>
         </Modal>
       </Container>
     </div>
