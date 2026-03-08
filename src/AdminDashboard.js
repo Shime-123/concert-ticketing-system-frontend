@@ -4,11 +4,7 @@ import { Container, Row, Col, Card, Table, Badge, Button, Modal, Form, Spinner, 
 function AdminDashboard() {
   // --- State Management ---
   const [stats, setStats] = useState({ 
-    totalRevenue: 0, 
-    totalTickets: 0, 
-    recentPurchases: [], 
-    totalPages: 1, 
-    currentPage: 1 
+    totalRevenue: 0, totalTickets: 0, recentPurchases: [], totalPages: 1, currentPage: 1 
   });
   const [concerts, setConcerts] = useState([]);
   const [users, setUsers] = useState([]);
@@ -19,7 +15,7 @@ function AdminDashboard() {
   const [buyerSearch, setBuyerSearch] = useState("");
   const [userSearch, setUserSearch] = useState("");
   const [concertPage, setConcertPage] = useState(1);
-  const [buyerPage, setBuyerPage] = useState(1); // 🚀 This now controls Backend pagination
+  const [buyerPage, setBuyerPage] = useState(1); 
   const rowsPerPage = 5;
 
   const [showAddModal, setShowAddModal] = useState(false);
@@ -37,7 +33,6 @@ function AdminDashboard() {
   // --- 1. Fetch Logic ---
   const fetchData = useCallback(async () => {
     try {
-      // ✅ Updated to pass buyerPage to the stats endpoint
       const [statsRes, concertRes, userRes] = await Promise.all([
         fetch(`${baseUrl}/api/Admin/stats?page=${buyerPage}`),
         fetch(`${baseUrl}/api/Concerts`),
@@ -48,7 +43,7 @@ function AdminDashboard() {
       const concertData = await concertRes.json();
       const userData = await userRes.json();
 
-      setStats(statsData); // StatsData now includes totalPages and currentPage from backend
+      setStats(statsData);
       setConcerts(concertData);
       setUsers(userData || []); 
       setLoading(false);
@@ -56,11 +51,9 @@ function AdminDashboard() {
       console.error("Dashboard Fetch Error:", err);
       setLoading(false);
     }
-  }, [baseUrl, buyerPage]); // 🚀 Re-fetch when buyerPage changes
+  }, [baseUrl, buyerPage]);
 
-  useEffect(() => { 
-    fetchData(); 
-  }, [fetchData]);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   // --- 📥 Export Logic ---
   const exportToCSV = () => {
@@ -104,7 +97,6 @@ function AdminDashboard() {
     if (res.ok) fetchData();
   };
 
-  // --- Concert Handlers (Add/Update/Delete) ---
   const handleAddConcert = async (e) => {
     e.preventDefault();
     try {
@@ -155,7 +147,7 @@ function AdminDashboard() {
     }
   };
 
-  // --- Filtering Logic (Local for Concerts/Users) ---
+  // --- Filtering Logic ---
   const paginateLocal = (items, page) => {
     const startIndex = (page - 1) * rowsPerPage;
     return items.slice(startIndex, startIndex + rowsPerPage);
@@ -277,7 +269,7 @@ function AdminDashboard() {
           </Table>
         </Card>
 
-        {/* 3. Transactions Table (Backend Paginated) */}
+        {/* 3. Transactions Table */}
         <div className="d-flex justify-content-between align-items-center mb-3">
           <h4 className="fw-bold mb-0">Recent Transactions</h4>
           <InputGroup style={{ maxWidth: '300px' }}>
@@ -306,29 +298,90 @@ function AdminDashboard() {
               ))}
             </tbody>
           </Table>
-          
-          {/* 🚀 New Backend Pagination Footer */}
           <div className="d-flex justify-content-between align-items-center px-4 py-3 bg-light border-top">
-            <div className="text-muted small">
-              Page <strong>{stats.currentPage}</strong> of <strong>{stats.totalPages}</strong>
-            </div>
+            <div className="text-muted small">Page <strong>{stats.currentPage}</strong> of <strong>{stats.totalPages}</strong></div>
             <div className="d-flex gap-2">
-              <Button 
-                variant="outline-secondary" size="sm" className="rounded-pill px-3"
-                disabled={buyerPage === 1}
-                onClick={() => setBuyerPage(prev => prev - 1)}
-              >Previous</Button>
-              <Button 
-                variant="outline-secondary" size="sm" className="rounded-pill px-3"
-                disabled={buyerPage === stats.totalPages}
-                onClick={() => setBuyerPage(prev => prev + 1)}
-              >Next</Button>
+              <Button variant="outline-secondary" size="sm" className="rounded-pill px-3" disabled={buyerPage === 1} onClick={() => setBuyerPage(prev => prev - 1)}>Previous</Button>
+              <Button variant="outline-secondary" size="sm" className="rounded-pill px-3" disabled={buyerPage === stats.totalPages} onClick={() => setBuyerPage(prev => prev + 1)}>Next</Button>
             </div>
           </div>
         </Card>
 
-        {/* Modals for Add/Edit remain as you have them... */}
+        {/* --- Create Concert Modal --- */}
+        <Modal show={showAddModal} onHide={() => setShowAddModal(false)} size="lg" centered>
+          <Modal.Header closeButton className="border-0"><Modal.Title className="fw-bold">Create New Concert</Modal.Title></Modal.Header>
+          <Form onSubmit={handleAddConcert}>
+            <Modal.Body className="bg-light px-4">
+              <Row>
+                <Col md={6} className="mb-3">
+                  <Form.Label className="small fw-bold text-uppercase">Concert Title</Form.Label>
+                  <Form.Control required type="text" placeholder="e.g. Summer Jam 2024" value={newConcert.concertTitle} onChange={(e) => setNewConcert({...newConcert, concertTitle: e.target.value})} />
+                </Col>
+                <Col md={6} className="mb-3">
+                  <Form.Label className="small fw-bold text-uppercase">Venue</Form.Label>
+                  <Form.Control required type="text" placeholder="e.g. Millennium Hall" value={newConcert.venue} onChange={(e) => setNewConcert({...newConcert, venue: e.target.value})} />
+                </Col>
+                <Col md={6} className="mb-3">
+                  <Form.Label className="small fw-bold text-uppercase">Date & Time</Form.Label>
+                  <Form.Control required type="datetime-local" value={newConcert.date} onChange={(e) => setNewConcert({...newConcert, date: e.target.value})} />
+                </Col>
+                <Col md={6} className="mb-3">
+                  <Form.Label className="small fw-bold text-uppercase">Image URL</Form.Label>
+                  <Form.Control required type="text" placeholder="https://image-link.com" value={newConcert.imageUrl} onChange={(e) => setNewConcert({...newConcert, imageUrl: e.target.value})} />
+                </Col>
+              </Row>
+              <hr />
+              <Row>
+                <Col md={3} className="mb-3">
+                  <Form.Label className="small fw-bold text-uppercase">Regular Price</Form.Label>
+                  <Form.Control required type="number" placeholder="0.00" value={newConcert.regularPrice} onChange={(e) => setNewConcert({...newConcert, regularPrice: e.target.value})} />
+                </Col>
+                <Col md={3} className="mb-3">
+                  <Form.Label className="small fw-bold text-uppercase">Regular Stripe ID</Form.Label>
+                  <Form.Control required type="text" placeholder="price_..." value={newConcert.regularStripeId} onChange={(e) => setNewConcert({...newConcert, regularStripeId: e.target.value})} />
+                </Col>
+                <Col md={3} className="mb-3">
+                  <Form.Label className="small fw-bold text-uppercase">VIP Price</Form.Label>
+                  <Form.Control required type="number" placeholder="0.00" value={newConcert.vipPrice} onChange={(e) => setNewConcert({...newConcert, vipPrice: e.target.value})} />
+                </Col>
+                <Col md={3} className="mb-3">
+                  <Form.Label className="small fw-bold text-uppercase">VIP Stripe ID</Form.Label>
+                  <Form.Control required type="text" placeholder="price_..." value={newConcert.vipStripeId} onChange={(e) => setNewConcert({...newConcert, vipStripeId: e.target.value})} />
+                </Col>
+              </Row>
+            </Modal.Body>
+            <Modal.Footer className="border-0"><Button variant="light" onClick={() => setShowAddModal(false)}>Cancel</Button><Button variant="dark" type="submit">Create Concert</Button></Modal.Footer>
+          </Form>
+        </Modal>
 
+        {/* --- Edit Concert Modal --- */}
+        <Modal show={showEditModal} onHide={() => setShowEditModal(false)} size="lg" centered>
+          <Modal.Header closeButton className="border-0"><Modal.Title className="fw-bold">Edit Concert</Modal.Title></Modal.Header>
+          <Form onSubmit={handleUpdateConcert}>
+            <Modal.Body className="bg-light px-4">
+              {editingConcert && (
+                <>
+                  <Row>
+                    <Col md={6} className="mb-3">
+                      <Form.Label className="small fw-bold text-uppercase">Concert Title</Form.Label>
+                      <Form.Control required type="text" value={editingConcert.concertTitle} onChange={(e) => setEditingConcert({...editingConcert, concertTitle: e.target.value})} />
+                    </Col>
+                    <Col md={6} className="mb-3">
+                      <Form.Label className="small fw-bold text-uppercase">Venue</Form.Label>
+                      <Form.Control required type="text" value={editingConcert.venue} onChange={(e) => setEditingConcert({...editingConcert, venue: e.target.value})} />
+                    </Col>
+                  </Row>
+                  <Row>
+                    <Col md={6} className="mb-3">
+                      <Form.Check type="switch" label="Is Sold Out?" checked={editingConcert.isSoldOut} onChange={(e) => setEditingConcert({...editingConcert, isSoldOut: e.target.checked})} />
+                    </Col>
+                  </Row>
+                </>
+              )}
+            </Modal.Body>
+            <Modal.Footer className="border-0"><Button variant="light" onClick={() => setShowEditModal(false)}>Cancel</Button><Button variant="primary" type="submit">Update Concert</Button></Modal.Footer>
+          </Form>
+        </Modal>
       </Container>
     </div>
   );
