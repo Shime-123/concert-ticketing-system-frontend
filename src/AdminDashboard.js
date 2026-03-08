@@ -15,10 +15,17 @@ function AdminDashboard() {
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [newConcert, setNewConcert] = useState({
-    concertTitle: '', venue: '', date: '', imageUrl: '',
-    regularPrice: '', regularStripeId: '', vipPrice: '', vipStripeId: '', isSoldOut: false
-  });
+const [newConcert, setNewConcert] = useState({
+  concertTitle: '',
+  venue: '',
+  date: new Date().toISOString().slice(0, 16), // Pre-fills current time for the picker
+  imageUrl: '',
+  regularPrice: 0,
+  regularStripeId: '',
+  vipPrice: 0,
+  vipStripeId: '',
+  isSoldOut: false
+});
   const [editingConcert, setEditingConcert] = useState(null);
 
   const baseUrl = process.env.REACT_APP_API_URL || "https://concert-ticketing-system-backend.onrender.com";
@@ -59,25 +66,56 @@ function AdminDashboard() {
   };
 
   // --- 3. CONCERT CRUD HANDLERS ---
-  const handleAddConcert = async (e) => {
-    e.preventDefault();
-    const res = await fetch(`${baseUrl}/api/Admin/add-concert`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...newConcert, regularPrice: parseFloat(newConcert.regularPrice), vipPrice: parseFloat(newConcert.vipPrice) })
-    });
-    if (res.ok) { setShowAddModal(false); fetchData(); }
+// --- FIX FOR ADD CONCERT ---
+const handleAddConcert = async (e) => {
+  e.preventDefault();
+  
+  // Create a clean object to send
+  const concertData = {
+    ...newConcert,
+    regularPrice: parseFloat(newConcert.regularPrice) || 0, // Convert string to decimal
+    vipPrice: parseFloat(newConcert.vipPrice) || 0,        // Convert string to decimal
+    date: new Date(newConcert.date).toISOString()          // Ensure UTC format for your DB Fix
   };
 
-  const handleUpdateConcert = async (e) => {
-    e.preventDefault();
-    const res = await fetch(`${baseUrl}/api/Admin/update-concert/${editingConcert.concertId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(editingConcert)
-    });
-    if (res.ok) { setShowEditModal(false); fetchData(); }
+  const res = await fetch(`${baseUrl}/api/Admin/add-concert`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(concertData)
+  });
+  
+  if (res.ok) { 
+    setShowAddModal(false); 
+    fetchData(); 
+  } else {
+    const errorData = await res.json();
+    console.error("Add Failed:", errorData);
+    alert("Check Console: " + JSON.stringify(errorData.errors));
+  }
+};
+
+// --- FIX FOR EDIT CONCERT ---
+const handleUpdateConcert = async (e) => {
+  e.preventDefault();
+
+  const concertData = {
+    ...editingConcert,
+    regularPrice: parseFloat(editingConcert.regularPrice),
+    vipPrice: parseFloat(editingConcert.vipPrice),
+    date: new Date(editingConcert.date).toISOString()
   };
+
+  const res = await fetch(`${baseUrl}/api/Admin/update-concert/${editingConcert.concertId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(concertData)
+  });
+
+  if (res.ok) { 
+    setShowEditModal(false); 
+    fetchData(); 
+  }
+};
 
   const handleDeleteConcert = async (id) => {
     if (window.confirm("Delete this event?")) {
@@ -175,17 +213,17 @@ function AdminDashboard() {
             <td>{c.venue}</td>
             <td className="small text-muted">{new Date(c.date).toLocaleDateString()}</td>
             <td className="text-end px-4">
-              <Button 
-                variant="outline-primary" 
-                size="sm" 
-                className="me-2 rounded-pill px-3" 
-                onClick={() => { 
-                  setEditingConcert(c); 
-                  setShowEditModal(true); 
-                }}
-              >
-                Edit
-              </Button>
+<Button 
+  variant="link" 
+  onClick={() => { 
+    // Format the date so the HTML input can read it (YYYY-MM-DDTHH:MM)
+    const formattedDate = c.date ? c.date.substring(0, 16) : "";
+    setEditingConcert({ ...c, date: formattedDate }); 
+    setShowEditModal(true); 
+  }}
+>
+  Edit
+</Button>
               <Button 
                 variant="outline-danger" 
                 size="sm" 
